@@ -92,13 +92,14 @@ class TestJsonContainerFileOperations:
             json.dump(sample_base_data, f)
 
         container = JsonContainer()
-        container._read_container()
+        loaded = container._read_container()
 
+        assert loaded == sample_base_data
         assert container.data == sample_base_data
         assert "item-1" in container.data["bucket"]
 
-    def test_read_bucket_auto_creates_if_missing(self, isolated_storage_dir: Path):
-        """Verify read_bucket automatically initializes the file if it does not exist.
+    def test_read_auto_creates_if_missing(self, isolated_storage_dir: Path):
+        """Verify read() automatically initializes the file if it does not exist.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
@@ -106,13 +107,14 @@ class TestJsonContainerFileOperations:
         assert not target_file.exists()
 
         container = JsonContainer()
-        container.read_bucket()
+        data = container.read()
 
         assert target_file.exists()
+        assert data == BASE_STRUCTURE
         assert container.data == BASE_STRUCTURE
 
-    def test_read_bucket_reads_existing_file(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify read_bucket loads existing data without overwriting it.
+    def test_read_reads_existing_file(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify read() loads existing data without overwriting it.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
@@ -122,6 +124,7 @@ class TestJsonContainerFileOperations:
             json.dump(sample_base_data, f)
 
         container = JsonContainer()
-        container.read_bucket()
+        data = container.read()
 
+        assert data["projects"]["proj-1"]["name"] == "Test Project"
         assert container.data["projects"]["proj-1"]["name"] == "Test Project"
