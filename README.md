@@ -1,7 +1,7 @@
 # Personal Operations Planner
 
 A tool that combines personal project management through a GTD style system
-with routines and habit tracking and other missilanous tracking for things like
+with routines and habit tracking and other miscellaneous tracking for things like
 finances.
 
 ## Features
@@ -13,7 +13,7 @@ finances.
 
 ## Requirements
 
-This project requires python 3.11+
+This project requires python 3.12+
 
 ## Installation
 
@@ -30,17 +30,21 @@ pip install -e .
 ## Configuration
 
 Provide a local `OP_DATA_DIR` in your .env with the path to where you want your data
-files to live.  This project doesn't use any database at all, simply json text files.
+files to live.  This project doesn't use any database at all, simply JSON text files.
 
 `.env`:
 ```
-OP_DATA_DIR="~/.op"
+export OP_DATA_DIR="OP_DATA_DIR=/path/to/op-data"
 ```
 
 ## Data
 
 ## Development
 
-## Project Structure
+This project is still in early development and does not work at all yet.  Check back soon.
 
-## License
+The basic work structure is as follows:
+- Humans write the main code
+- Docs and tests are mostly vibe-coded but checked carefully.
+
+## Project Structure

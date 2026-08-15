@@ -7,12 +7,13 @@
 OP is not a generic task manager or an administrative database to manually curate. Instead, it acts as a **calculated projection** over personal data streams—combining a modified Getting Things Done (GTD) workflow, habit tracking, financial tracking, calendar integration, and periodic reviews into a unified terminal dashboard.
 
 ### Core Principles
+- **Radical Simplicity**: A lightweight architecture prioritizing clarity and ease of maintenance over complexity.
 - **Projection over State**: The dashboard and views are computed dynamically from primary records rather than manually maintained.
 - **Low Friction Capture**: Plain-text capture without mandatory structure at creation time.
 - **Resource Reference, Not Storage**: OP links to external resources (Obsidian notes, Git repositories, filesystem paths, URLs) rather than becoming a document store.
 - **Rule-Based Recurrence**: Recurrence is evaluated on the fly rather than generating unbounded future records.
 - **State Progression over Deletion**: Completed projects, cancelled tickets, and historical items transition state to maintain long-term personal context.
-- **Zero Heavy Infrastructure**: Storage relies entirely on plain JSON text files in a configurable local data directory (`OP_DATA_DIR`).
+- **Single Flat File Persistence**: Storage relies on a single JSON document (`planner.json`) acting as a simple, transparent database inside `OP_DATA_DIR`.
 
 ---
 
@@ -37,21 +38,35 @@ This is a personal programming project built for enjoyment and deliberate practi
 
 ## 3. Storage & Data Architecture
 
-- **Path Configuration**: Governed by the `OP_DATA_DIR` environment variable (defaults to `~/.op`).
-- **Format**: Human-readable, structured JSON files.
-- **No Database**: Pure file-based persistence for transparency, portability, and ease of backup/sync.
+To achieve maximum simplicity, portability, and zero-infrastructure overhead, OP stores all data in a **single JSON file** (`planner.json`) located in `OP_DATA_DIR` (configured via environment variable, defaulting to `~/.op`).
 
+### Directory Layout
 ```text
 OP_DATA_DIR/
-├── bucket.json         # Raw unprocessed capture
-├── parked.json         # Someday / Maybe items
-├── projects.json       # Projects with outcomes and criteria
-├── tickets.json        # Actionable and waiting tickets
-├── habits.json         # Habit and routine definitions
-├── habit_history.json  # Historical log of completed tracked habits
-├── finances.json       # Account balance records and history
-└── config.json         # User settings, contexts, and integrations
+└── planner.json         # Unified JSON document storing all planner data
 ```
+
+### Base Document Schema
+The base structure initialized by `op` (defined in `config.py`) consists of top-level dictionary tables:
+
+```json
+{
+  "bucket": {},
+  "projects": {},
+  "tickets": {},
+  "parked": {},
+  "habits": {},
+  "habit_log": {},
+  "accounts": {},
+  "balances": {},
+  "calendar": {}
+}
+```
+
+### Architecture Benefits
+- **Atomic Operations**: Straightforward whole-document reads and writes eliminate multi-file synchronization edge cases.
+- **Portability & Backups**: A single file makes snapshots, version control, syncing (e.g., via Syncthing/Dropbox/Git), and manual inspection trivial.
+- **Zero Query Overhead**: In-memory dictionary manipulation with simple persistence semantics.
 
 ---
 
@@ -60,54 +75,55 @@ OP_DATA_DIR/
 ```text
                      CAPTURE
                         │
-                      Bucket (bucket.json)
+                      bucket
                         │
                      Process
            ┌────────────┼────────────┐
            ▼            ▼            ▼
-        Project      Ticket       Parked (parked.json)
-           │            │       (Someday / Maybe)
-           └──── Tickets ┘
+        projects     tickets       parked
+           │            │     (Someday / Maybe)
+           └──── tickets ┘
                   │
                   ▼
              WORK STREAM
 
-  Habits / Routines ────────┐
-  Google Calendar ──────────┤
-  Projects & Tickets ───────┼───►  DASHBOARD ("What matters now?")
+  habits & habit_log ───────┐
+  calendar ─────────────────┤
+  projects & tickets ───────┼───►  DASHBOARD ("What matters now?")
   Periodic Reviews ─────────┤
-  Finances (Net Worth) ─────┘
+  accounts & balances ──────┘
 ```
 
 ### 4.1 Bucket (Unprocessed Capture)
 The entry point for all raw thoughts, tasks, and ideas with near-zero friction.
-- **Fields**: Unique ID, raw text content, capture timestamp, status (`fresh`, `scheduled`, `processed`, `archived`).
+- **Stored In**: `planner.json["bucket"]` (keyed by item ID)
+- **Fields**: ID, raw text content, capture timestamp, status (`fresh`, `scheduled`, `processed`, `archived`).
 - **Lifecycles**:
-  - `fresh`: Newly captured item awaiting processing in `bucket.json`.
+  - `fresh`: Newly captured item awaiting processing.
   - `scheduled`: Deferred to surface on or after a future date.
-  - `processed`: Converted into a Project, Ticket, or Habit.
-  - `parked`: Moved to `parked.json` as a someday/maybe item.
+  - `processed`: Converted into a project, ticket, or habit.
+  - `parked`: Moved to `planner.json["parked"]` as a someday/maybe item.
 
 ### 4.2 Parked (Someday / Maybe)
 Ideas, aspirational projects, or deferred items that have no active commitment today.
-- **Stored In**: `parked.json`
-- **Fields**: Unique ID, title/description, category/area, parked timestamp, review cadence/trigger, status (`parked`, `reactivated`, `archived`).
-- **Surfacing**: Reviewed during periodic review cadences (weekly/monthly) or activated into full Projects/Tickets when ready.
+- **Stored In**: `planner.json["parked"]` (keyed by item ID)
+- **Fields**: ID, title/description, category/area, parked timestamp, review cadence/trigger, status (`parked`, `reactivated`, `archived`).
+- **Surfacing**: Reviewed during periodic review cadences (weekly/monthly) or activated into active projects/tickets when ready.
 
 ### 4.3 Projects
 A high-level outcome or deliverable with defined completion criteria.
-- **Stored In**: `projects.json`
+- **Stored In**: `planner.json["projects"]` (keyed by project ID)
 - **Fields**: ID, name, description/spec, `done_when` (unambiguous completion criteria), status (`active`, `paused`, `completed`, `cancelled`), target date, created/updated timestamps.
 - **Resource Pointers**: Key-value map referencing external locations:
   - Obsidian note paths
   - Local filesystem directories / files
   - GitHub repositories or PRs
   - Web URLs
-- **Tickets Link**: A project aggregates multiple related tickets.
+- **Tickets Link**: A project aggregates multiple related ticket IDs.
 
 ### 4.4 Tickets (Actionable Work Units)
 Individual executable steps. Diverging from strict single-next-action GTD, a project may have multiple parallel actionable tickets simultaneously.
-- **Stored In**: `tickets.json`
+- **Stored In**: `planner.json["tickets"]` (keyed by ticket ID)
 - **Fields**: ID, project_id (optional for standalone tasks), title, description, context tags (e.g., `["terminal", "phone", "errand"]`), `actionable` boolean, `available_from` date (deferral), `due` date (deadline), `blocked_by` (list of prerequisite ticket IDs), status (`open`, `in_progress`, `done`, `cancelled`).
 - **Actionability**: Computed dynamically. A ticket is actionable if:
   - `status == "open"`
@@ -117,16 +133,17 @@ Individual executable steps. Diverging from strict single-next-action GTD, a pro
 ### 4.5 Habits & Routines
 Recurring items structured with a strict separation between **Definition** and **History**.
 
-- **Habit Definitions (`habits.json`)**:
+- **Habit Definitions (`planner.json["habits"]`)**:
   - Name, description, cadence rule (e.g., daily, weekdays, weekly on Saturday), target frequency.
   - `tracked` flag:
     - **Tracked Habits** (`tracked = true`): Core habits where historical compliance, streaks, and trends matter (e.g., language study, exercise). Changes in schedule do not rewrite historical expectations.
     - **Untracked Routines** (`tracked = false`): Recurring maintenance tasks that need to surface at specific times without generating historical statistics or log noise (e.g., laundry, taking out trash).
-- **Habit History (`habit_history.json`)**:
+- **Habit Log (`planner.json["habit_log"]`)**:
   - Immutable historical execution entries: `date`, `habit_id`, `status` (`done`, `skipped`, `failed`), notes.
 - **Recurrence Engine**: Dynamically derives whether a routine applies to the current date on-the-fly rather than populating static future records.
 
 ### 4.6 Calendar Integration & Time Models
+- **Stored In**: `planner.json["calendar"]`
 - **Hard Landscape**: Fixed-time commitments, meetings, flights, and appointments (integrated with Google Calendar). These represent non-negotiable time occupied.
 - **Deadlines vs. Appointments**:
   - **Appointment**: Event anchored to a specific time interval (e.g., "Flight departs 11:30").
@@ -134,9 +151,9 @@ Recurring items structured with a strict separation between **Definition** and *
 
 ### 4.7 Finances
 Lightweight daily balance tracking across user-defined accounts.
-- **Stored In**: `finances.json`
+- **Stored In**: `planner.json["accounts"]` (definitions/metadata) and `planner.json["balances"]` (timestamped balance logs).
 - **Accounts**: Checking, savings, investments, credit cards, loans.
-- **Balance Logging**: Accounts store current balance with a timestamp.
+- **Balance Logging**: Accounts record balance snapshots with timestamps.
 - **Rolled Balances**: If an account balance is not updated on a given day, the previous recorded balance is automatically rolled forward (assuming zero net change).
 - **Daily Net Worth**: Sum of all asset balances minus liabilities computed on demand for any date.
 
@@ -144,7 +161,7 @@ Lightweight daily balance tracking across user-defined accounts.
 Dedicated diagnostic and reflective modes assembled for recurring review cadences:
 - **Cadences**: Weekly (Sunday), Monthly, Annual / Birthday.
 - **Aggregated Review Projections**:
-  - Unprocessed bucket items and parked items (`parked.json`)
+  - Unprocessed bucket items and parked items
   - Active projects with no actionable tickets
   - Stale / stagnant projects
   - Habit adherence trends and drifting routines

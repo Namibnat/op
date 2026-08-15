@@ -28,3 +28,4 @@ dist/
 # macOS
 .DS_Store
 
+.config/op/config.toml
