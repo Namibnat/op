@@ -17,8 +17,14 @@ This project requires python 3.11+
 
 ## Installation
 
-```commandline
-git clone op
+```
+git clone git@github.com:Namibnat/op.git
+cd op
+
+python3 -m venv .venv
+source .venv/bin/activate
+
+pip install -e .
 ```
 
 ## Configuration
