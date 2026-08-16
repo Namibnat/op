@@ -4,7 +4,7 @@ import datetime
 import os
 import shutil
 
-from op.models import BucketCollection, ProjectCollection
+from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 
 
 def date_string():
@@ -35,8 +35,8 @@ def print_dashboard(dashboard_data: dict):
     # Dashboard Data
     num_of_buckets = dashboard_data.get('num_buckets')
     num_of_active_projects = dashboard_data.get('active_projects')
-    num_of_active_tickets = 0
-    num_of_active_routines = 0
+    num_of_active_tickets = dashboard_data.get('active_tickets')
+    num_of_active_routines = dashboard_data.get('active_habits')
 
     os.system('clear')
     dashboard = (
@@ -75,6 +75,12 @@ def get_dashboard_data():
 
     project_interface = ProjectCollection()
     dashboard_data['active_projects'] = project_interface.count_active_projects()
+
+    ticket_interface = TicketCollection()
+    dashboard_data['active_tickets'] = ticket_interface.count_active_tickets()
+
+    routines_interface = RoutinesCollection()
+    dashboard_data['active_habits'] = routines_interface.count_active_habits()
 
     return dashboard_data
 

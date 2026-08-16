@@ -12,7 +12,7 @@ load_dotenv()
 data_dir = os.getenv('OP_DATA_DIR')
 if not data_dir:
     raise ValueError("No data directory provided")
-DATA_DIR = Path(Path(data_dir).expanduser())
+DATA_DIR = Path(data_dir).expanduser()
 
 
 class JsonContainer:

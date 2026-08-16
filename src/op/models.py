@@ -4,7 +4,9 @@ from op.storage import JsonContainer
 
 
 class CollectionModel:
-    json_container = JsonContainer()
+
+    def __init__(self):
+        self.json_container = JsonContainer()
 
     def read_data(self):
         """Read the data
@@ -30,10 +32,6 @@ class CollectionModel:
 class BucketCollection(CollectionModel):
     container_name = "bucket"
 
-    @classmethod
-    def _validate(cls):
-        pass
-
     def count_all_buckets(self):
         """Count all buckets
 
@@ -43,17 +41,13 @@ class BucketCollection(CollectionModel):
         buckets = self.read_all(self.container_name)
         return len(buckets)
 
-    @classmethod
-    def create(cls):
+    def create(self):
         pass
 
 
 class ProjectCollection(CollectionModel):
+    """Project Collection"""
     container_name = "projects"
-
-    @classmethod
-    def _validate(cls):
-        pass
 
     def count_active_projects(self):
         """TODO: UPDATE DOCSTRING"""
@@ -67,3 +61,44 @@ class ProjectCollection(CollectionModel):
                 active_projects += 1
 
         return active_projects
+
+    def create(self):
+        pass
+
+
+class TicketCollection(CollectionModel):
+    """Ticket Collection"""
+    container_name = "tickets"
+
+    def count_active_tickets(self):
+        """TODO: UPDATE DOCSrTING"""
+        active_tickets = 0
+        tickets = self.read_all(self.container_name)
+        if not tickets:
+            return active_tickets
+
+        for ticket in tickets.values():
+            # Filtering will be more complicated here, but this is just stand in default for now
+            if ticket.get('state') ==  'active':
+                active_tickets += 1
+
+        return active_tickets
+
+
+class RoutinesCollection(CollectionModel):
+    """Routines/Habits Collection"""
+    container_name = "habits"
+
+    def count_active_habits(self):
+        """TODO: UPDATE DOCSrTING"""
+        active_habits = 0
+        habits = self.read_all(self.container_name)
+        if not habits:
+            return active_habits
+
+        for habit in habits.values():
+            # Filtering will be more complicated here, but this is just stand in default for now
+            if habit.get('state') ==  'active':
+                active_habits += 1
+
+        return active_habits
