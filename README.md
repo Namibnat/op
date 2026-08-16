@@ -24,7 +24,7 @@ cd op
 python3 -m venv .venv
 source .venv/bin/activate
 
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ## Configuration
@@ -34,10 +34,23 @@ files to live.  This project doesn't use any database at all, simply JSON text f
 
 `.env`:
 ```
-export OP_DATA_DIR="OP_DATA_DIR=/path/to/op-data"
+export OP_DATA_DIR=/path/to/op-data
 ```
 
-## Data
+## Quickstart
+
+After installation, you can do the following:
+
+### Create the path to where your data will live
+
+```commandline
+mkdir -p /path/to/op-data
+```
+
+### See your day's dashboard
+```commandline
+op
+```
 
 ## Development
 
@@ -47,4 +60,49 @@ The basic work structure is as follows:
 - Humans write the main code
 - Docs and tests are mostly vibe-coded but checked carefully.
 
+## Data
+
+```
+BASE_STRUCTURE = {
+    "bucket": {},
+    "projects": {},
+    "tickets": {},
+    "parked": {},
+    "habits": {},
+    "habit_log": {},
+    "accounts": {},
+    "balances": {},
+    "calendar": {}
+}
+```
+
 ## Project Structure
+
+```
+.
+├── docs
+│   └── op_spec.md
+├── LICENSE
+├── pyproject.toml
+├── README.md
+├── src
+│   ├── op
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── models.py
+│   │   ├── op.py
+│   │   └── storage.py
+│   └── op.egg-info
+│       ├── dependency_links.txt
+│       ├── entry_points.txt
+│       ├── PKG-INFO
+│       ├── requires.txt
+│       ├── SOURCES.txt
+│       └── top_level.txt
+└── tests
+    ├── conftest.py
+    ├── test_models.py
+    ├── test_op.py
+    └── test_storage.py
+
+```
