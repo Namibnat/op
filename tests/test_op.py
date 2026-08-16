@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 
 import op
-from op.op import date_string, get_dashboard_data
+from op.op import date_string, get_dashboard_data, add_new_bucket_item
+from op.models import BucketCollection
 
 
 def test_package_import():
@@ -61,3 +62,17 @@ def test_get_dashboard_data_populated(isolated_storage_dir: Path, sample_base_da
     assert data["active_projects"] == 1
     assert data["active_tickets"] == 1
     assert data["active_habits"] == 1
+
+
+def test_add_new_bucket_item(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify add_new_bucket_item persists item and displays confirmation output.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    add_new_bucket_item("Write unit tests")
+    captured = capsys.readouterr()
+    assert "New bucket item captured:" in captured.out
+    assert "Write unit tests" in captured.out
+
+    bucket_col = BucketCollection()
+    assert bucket_col.count_all_buckets() == 1

@@ -4,18 +4,30 @@
 # License: MIT
 """
 
+import datetime
 import json
 from pathlib import Path
 import pytest
 
 from op.config import BASE_STRUCTURE
 from op.models import (
+    date_day_string,
     CollectionModel,
     BucketCollection,
     ProjectCollection,
     TicketCollection,
     RoutinesCollection,
 )
+
+
+def test_date_day_string():
+    """Verify date_day_string produces ISO YYYY-MM-DD formatted string.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    date_str = date_day_string()
+    parsed = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+    assert parsed.year == datetime.datetime.now().year
 
 
 class TestCollectionModelBase:
@@ -85,6 +97,21 @@ class TestBucketCollection:
 
         bucket_col = BucketCollection()
         assert bucket_col.count_all_buckets() == 3
+
+    def test_create_adds_bucket_item(self, isolated_storage_dir: Path):
+        """Verify create() stores a formatted bucket capture item with date_created and status fresh.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        bucket_col = BucketCollection()
+        bucket_col.create("Read chapter 4")
+
+        assert bucket_col.count_all_buckets() == 1
+        items = bucket_col.read_all("bucket")
+        item_data = list(items.values())[0]
+        assert item_data["item"] == "Read chapter 4"
+        assert "date_created" in item_data
+        assert item_data["status"] == "fresh"
 
 
 class TestProjectCollection:

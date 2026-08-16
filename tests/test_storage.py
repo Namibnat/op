@@ -128,3 +128,39 @@ class TestJsonContainerFileOperations:
 
         assert data["projects"]["proj-1"]["name"] == "Test Project"
         assert container.data["projects"]["proj-1"]["name"] == "Test Project"
+
+    def test_create_item_persists_to_disk(self, isolated_storage_dir: Path):
+        """Verify create() adds a new UUID-keyed entry to the container and saves to disk.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        container = JsonContainer()
+        new_item = {"item": "Test capture", "date_created": "16/08/2026"}
+        container.create(new_item, container_name="bucket")
+
+        target_file = isolated_storage_dir / "planner.json"
+        assert target_file.exists()
+        with open(target_file, "r") as f:
+            saved_data = json.load(f)
+
+        assert len(saved_data["bucket"]) == 1
+        created_id = list(saved_data["bucket"].keys())[0]
+        assert saved_data["bucket"][created_id] == new_item
+
+    def test_create_item_invalid_container_raises_value_error(self, isolated_storage_dir: Path):
+        """Verify create() raises ValueError when given an invalid container name.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        container = JsonContainer()
+        with pytest.raises(ValueError, match="No container named nonexistent exists"):
+            container.create({"text": "abc"}, container_name="nonexistent")
+
+    def test_create_item_invalid_type_raises_value_error(self, isolated_storage_dir: Path):
+        """Verify create() raises ValueError when new_item is not a dictionary.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        container = JsonContainer()
+        with pytest.raises(ValueError, match="New Item not of type <dict>"):
+            container.create("not-a-dict", container_name="bucket")

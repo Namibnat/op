@@ -1,6 +1,17 @@
 """Data models: structure and behaviour of data"""
+import datetime
 
 from op.storage import JsonContainer
+
+
+def date_day_string():
+    """Create a formatted date string for printing
+
+    :return: Formatted date string
+    :rtype: str
+    """
+    date = datetime.datetime.now()
+    return date.strftime("%Y-%m-%d")
 
 
 class CollectionModel:
@@ -41,8 +52,17 @@ class BucketCollection(CollectionModel):
         buckets = self.read_all(self.container_name)
         return len(buckets)
 
-    def create(self):
-        pass
+    def create(self, new_bucket_item):
+        """Add a new item to the collection bucket"""
+        capture_bucket = {
+            "item": new_bucket_item,
+            "date_created": date_day_string(),
+            "status": "fresh"
+        }
+        self.json_container.create(
+            capture_bucket,
+            container_name=self.container_name
+        )
 
 
 class ProjectCollection(CollectionModel):
@@ -50,7 +70,7 @@ class ProjectCollection(CollectionModel):
     container_name = "projects"
 
     def count_active_projects(self):
-        """TODO: UPDATE DOCSTRING"""
+        """Count active projects"""
         active_projects = 0
         projects = self.read_all(self.container_name)
         if not projects:
@@ -71,7 +91,7 @@ class TicketCollection(CollectionModel):
     container_name = "tickets"
 
     def count_active_tickets(self):
-        """TODO: UPDATE DOCSrTING"""
+        """Count active tickets"""
         active_tickets = 0
         tickets = self.read_all(self.container_name)
         if not tickets:
@@ -90,7 +110,7 @@ class RoutinesCollection(CollectionModel):
     container_name = "habits"
 
     def count_active_habits(self):
-        """TODO: UPDATE DOCSrTING"""
+        """Count active habits"""
         active_habits = 0
         habits = self.read_all(self.container_name)
         if not habits:

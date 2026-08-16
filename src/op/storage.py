@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import uuid
 
 from dotenv import load_dotenv
 
@@ -38,6 +39,11 @@ class JsonContainer:
         with open(self.bucket, 'w') as fs:
             json.dump(BASE_STRUCTURE, fs)
 
+    def _save_container(self):
+        """Save container"""
+        with open(self.bucket, 'w') as fs:
+            json.dump(self.data, fs, indent=2)
+
     def _read_container(self):
         """Read data
 
@@ -61,3 +67,19 @@ class JsonContainer:
             self._create_container()
 
         return self._read_container()
+
+    def create(self, new_item: dict, container_name: str):
+        """Create a new field in one of the containers
+
+        :param new_item: The new item to be added
+        :param container_name: Which container it should go to.
+        """
+        self.data = self.read()
+        if container_name not in self.data:
+            raise ValueError(f"No container named {container_name} exists")
+
+        if not isinstance(new_item, dict):
+            raise ValueError(f"New Item not of type <dict>")
+
+        self.data[container_name][str(uuid.uuid4())] = new_item
+        self._save_container()

@@ -5,6 +5,7 @@ import os
 import shutil
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
+from op.parser import build_parser
 
 
 def date_string():
@@ -17,20 +18,42 @@ def date_string():
     return date.strftime("%A, %d %B %Y")
 
 
-def print_dashboard(dashboard_data: dict):
-    """Print the dashboard
+def create_item_seperator(terminal_width):
+    """Create item separator
 
-    :param dashboard_data: Dashboard data
+    :param terminal_width: The width of the terminal window as an int
+    :return: Formatting to add space between items
+    :rtype: str
     """
-    formatted_date = date_string()
-    terminal_width = shutil.get_terminal_size().columns
     full_line = "_" * terminal_width
     item_sep = f"\n\n\n{full_line}\n\n"
+    return item_sep
+
+
+def create_title_line(terminal_width):
+    """Create the top title line
+
+    :param terminal_width: The width of the terminal window as an int
+    :return: Title Line
+    :rtype: str
+    """
+    formatted_date = date_string()
 
     title_line = f" OP - {formatted_date} "
     len_title_line = len(title_line)
     short_line = int((terminal_width / 2) - (len_title_line / 2))
     title_line_full = "-" * short_line + title_line + "-" * short_line
+    return title_line_full
+
+
+def print_dashboard(dashboard_data: dict):
+    """Print the dashboard
+
+    :param dashboard_data: Dashboard data
+    """
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
 
     # Dashboard Data
     num_of_buckets = dashboard_data.get('num_buckets')
@@ -38,7 +61,6 @@ def print_dashboard(dashboard_data: dict):
     num_of_active_tickets = dashboard_data.get('active_tickets')
     num_of_active_routines = dashboard_data.get('active_habits')
 
-    os.system('clear')
     dashboard = (
         "\n\n"
         f"{title_line_full}"
@@ -85,6 +107,44 @@ def get_dashboard_data():
     return dashboard_data
 
 
+def add_new_bucket_item(text):
+    """Add a new item to bucket
+
+    :param text: Text to insert into a new bucket
+    """
+    new_bucket_item = text.strip()
+
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    bucket_interface = BucketCollection()
+    bucket_interface.create(new_bucket_item)
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n"
+        " BUCKET"
+        "\n"
+        " New bucket item captured:"
+        f"\n\t{text}"
+        f"{item_sep}"
+    )
+    print(display)
+
+
 def main():
-    dashboard_data = get_dashboard_data()
-    print_dashboard(dashboard_data)
+    parser = build_parser()
+    args = parser.parse_args()
+
+    os.system('clear')
+
+    if args.command == "bucket":
+        if args.bucket_command == "add":
+            add_new_bucket_item(args.text)
+        else:
+            parser.print_help()
+    else:
+        dashboard_data = get_dashboard_data()
+        print_dashboard(dashboard_data)

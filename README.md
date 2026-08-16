@@ -6,7 +6,7 @@ finances.
 
 ## Features
 
-- A GTD style app.
+- A GTD style app, with a slight modification where projects have tickets rather than next items.
 - A personal habit tracking app
 - A daily dashboard in the terminal
 - Somewhat of a calendar overview.
@@ -52,6 +52,18 @@ mkdir -p /path/to/op-data
 op
 ```
 
+### Add a new bucket item.
+
+The "bucket" refers to items that you capture to decide what to do with later.
+They are rough plans that still need to be sorted.
+
+To capture a new bucket item, you do the following:
+
+```commandline
+op bucket add "Start a luxury donkey spa"
+```
+
+
 ## Development
 
 This project is still in early development and does not work at all yet.  Check back soon.
@@ -61,6 +73,8 @@ The basic work structure is as follows:
 - Docs and tests are mostly vibe-coded but checked carefully.
 
 ## Data
+
+The data stored in `planner.json` will have the following top-level structure
 
 ```
 BASE_STRUCTURE = {
