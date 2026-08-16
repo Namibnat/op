@@ -43,13 +43,18 @@ class CollectionModel:
 class BucketCollection(CollectionModel):
     container_name = "bucket"
 
+    def get_all_buckets(self):
+        """Get all buckets"""
+        buckets = self.read_all(self.container_name)
+        return buckets
+
     def count_all_buckets(self):
         """Count all buckets
 
         :return: Number of buckets
         :rtype: int
         """
-        buckets = self.read_all(self.container_name)
+        buckets = self.get_all_buckets()
         return len(buckets)
 
     def create(self, new_bucket_item):

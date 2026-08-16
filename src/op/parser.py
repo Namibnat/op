@@ -19,10 +19,14 @@ def build_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
 
+    # Bucket Args
     bucket_parser = subparsers.add_parser('bucket')
     bucket_subparsers = bucket_parser.add_subparsers(
         dest="bucket_command"
     )
-    add_parser = bucket_subparsers.add_parser("add")
-    add_parser.add_argument("text", type=str)
+
+    add_bucket_parser = bucket_subparsers.add_parser("add")
+    add_bucket_parser.add_argument("text", type=str)
+
+    bucket_subparsers.add_parser("list")
     return parser

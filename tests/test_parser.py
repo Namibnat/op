@@ -33,3 +33,13 @@ class TestParser:
         assert args.command == "bucket"
         assert args.bucket_command == "add"
         assert args.text == "Buy groceries"
+
+    def test_parser_bucket_list(self):
+        """Verify parsing 'bucket list' captures bucket and list subcommands.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["bucket", "list"])
+        assert args.command == "bucket"
+        assert args.bucket_command == "list"

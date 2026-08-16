@@ -63,6 +63,12 @@ To capture a new bucket item, you do the following:
 op bucket add "Start a luxury donkey spa"
 ```
 
+### See a list of all your bucket items
+
+```commandline
+op bucket list
+```
+
 
 ## Development
 

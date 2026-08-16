@@ -76,6 +76,20 @@ class TestBucketCollection:
     # Authored by Antigravity Agent (Gemini 3.7 Flash)
     """
 
+    def test_get_all_buckets(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_all_buckets retrieves all bucket item dictionaries.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["bucket"]["b1"] = {"item": "Note 1"}
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        bucket_col = BucketCollection()
+        buckets = bucket_col.get_all_buckets()
+        assert "b1" in buckets
+        assert buckets["b1"]["item"] == "Note 1"
+
     def test_count_all_buckets_empty(self, isolated_storage_dir: Path):
         """Verify count_all_buckets returns 0 when no bucket items exist.
 

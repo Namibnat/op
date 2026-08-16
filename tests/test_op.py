@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 import op
-from op.op import date_string, get_dashboard_data, add_new_bucket_item
+from op.op import date_string, get_dashboard_data, add_new_bucket_item, list_bucket_items
 from op.models import BucketCollection
 
 
@@ -76,3 +76,30 @@ def test_add_new_bucket_item(isolated_storage_dir: Path, capsys: pytest.CaptureF
 
     bucket_col = BucketCollection()
     assert bucket_col.count_all_buckets() == 1
+
+
+def test_list_bucket_items_empty(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify list_bucket_items handles an empty bucket cleanly.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    list_bucket_items()
+    captured = capsys.readouterr()
+    assert "BUCKET - 0 items" in captured.out
+    assert "No items in bucket" in captured.out
+
+
+def test_list_bucket_items_populated(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify list_bucket_items formats and lists bucket entries.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    bucket_col = BucketCollection()
+    bucket_col.create("Read chapter 5")
+    bucket_col.create("Call dentist")
+
+    list_bucket_items()
+    captured = capsys.readouterr()
+    assert "BUCKET - 2 items" in captured.out
+    assert "Read chapter 5" in captured.out
+    assert "Call dentist" in captured.out

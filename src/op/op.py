@@ -134,6 +134,42 @@ def add_new_bucket_item(text):
     print(display)
 
 
+def list_bucket_items():
+    """List all the items in the bucket"""
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    bucket_interface = BucketCollection()
+    all_buckets = bucket_interface.get_all_buckets()
+
+    # The first part is 22 characters, and add some space at the end of the line
+    reasonable_item_length = max(10, terminal_width - 40)
+
+    bucket_items_string = "\tNo items in bucket"
+
+    if all_buckets:
+        print_lines = list()
+        for primary_key, bucket in all_buckets.items():
+            created_date = bucket.get('date_created')
+            item = bucket.get('item')
+            print_line = f"{primary_key[:8]}  {created_date}  {item[:reasonable_item_length]}"
+            print_lines.append(print_line)
+
+        bucket_items_string = "\n\t".join(print_lines)
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n\n"
+        f" BUCKET - {len(all_buckets)} items"
+        f"{item_sep}"
+        f"\t{bucket_items_string}"
+        f"{item_sep}"
+    )
+    print(display)
+
+
 def main():
     parser = build_parser()
     args = parser.parse_args()
@@ -143,6 +179,8 @@ def main():
     if args.command == "bucket":
         if args.bucket_command == "add":
             add_new_bucket_item(args.text)
+        elif args.bucket_command == "list":
+            list_bucket_items()
         else:
             parser.print_help()
     else:
