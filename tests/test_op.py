@@ -16,6 +16,7 @@ from op.op import (
     add_new_bucket_item,
     list_bucket_items,
     show_bucket_item_by_id,
+    discard_bucket_item_by_id,
 )
 from op.models import BucketCollection
 
@@ -162,3 +163,34 @@ def test_show_bucket_item_not_found(isolated_storage_dir: Path, capsys: pytest.C
     show_bucket_item_by_id("99999999")
     captured = capsys.readouterr()
     assert "No bucket found with an ID starting with 99999999" in captured.out
+
+
+def test_discard_bucket_item_found(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify discard_bucket_item_by_id deletes item and prints success message.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["bucket"]["330e8400-e29b-41d4-a716-446655440000"] = {
+        "item": "Discardable note",
+        "date_created": "2026-08-16",
+        "status": "fresh",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    discard_bucket_item_by_id("330e8400")
+    captured = capsys.readouterr()
+    assert "Bucket item has been discarded successfully" in captured.out
+
+    bucket_col = BucketCollection()
+    assert bucket_col.count_all_buckets() == 0
+
+
+def test_discard_bucket_item_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify discard_bucket_item_by_id prints not found message when item doesn't exist.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    discard_bucket_item_by_id("00000000")
+    captured = capsys.readouterr()
+    assert "No bucket item with ID found, no action taken" in captured.out

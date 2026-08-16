@@ -54,3 +54,14 @@ class TestParser:
         assert args.command == "bucket"
         assert args.bucket_command == "show"
         assert args.id == "a1b2c3d4"
+
+    def test_parser_bucket_discard(self):
+        """Verify parsing 'bucket discard <id>' captures bucket, discard, and id argument.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["bucket", "discard", "a1b2c3d4"])
+        assert args.command == "bucket"
+        assert args.bucket_command == "discard"
+        assert args.id == "a1b2c3d4"

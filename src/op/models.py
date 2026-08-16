@@ -86,6 +86,28 @@ class BucketCollection(CollectionModel):
                 return bucket
         return None
 
+    def discard_bucket(self, pk):
+        """Discard a bucket item by ID
+
+        The idea is that bucket items are cheap, just ideas.
+        So discarding isn't high-friction and no archives.
+
+        :param pk: The given ID
+        :return: Delete success status, True if delete successful
+        :rtype: bool
+        """
+        bucket = self.get_bucket(pk)
+        if not isinstance(bucket, dict):
+            return False
+
+        primary_key = bucket.get('id')
+        data = self.read_data()
+        del data['bucket'][primary_key]
+        self.json_container.data = data
+        self.json_container.save()
+
+        return True
+
 
 class ProjectCollection(CollectionModel):
     """Project Collection"""
@@ -121,7 +143,7 @@ class TicketCollection(CollectionModel):
 
         for ticket in tickets.values():
             # Filtering will be more complicated here, but this is just stand in default for now
-            if ticket.get('state') ==  'active':
+            if ticket.get('state') == 'active':
                 active_tickets += 1
 
         return active_tickets
@@ -140,7 +162,7 @@ class RoutinesCollection(CollectionModel):
 
         for habit in habits.values():
             # Filtering will be more complicated here, but this is just stand in default for now
-            if habit.get('state') ==  'active':
+            if habit.get('state') == 'active':
                 active_habits += 1
 
         return active_habits

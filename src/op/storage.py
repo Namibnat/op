@@ -19,11 +19,10 @@ DATA_DIR = Path(data_dir).expanduser()
 class JsonContainer:
     """Container data connection interface"""
     filename = 'planner.json'
-    bucket = DATA_DIR / filename
     data = BASE_STRUCTURE
 
     def __init__(self):
-        self.bucket = DATA_DIR / self.filename
+        self.planner = DATA_DIR / self.filename
 
     def _validate_structure(self):
         """Validate the data structure in the file"""
@@ -36,12 +35,12 @@ class JsonContainer:
 
     def _create_container(self):
         """Create new container as needed"""
-        with open(self.bucket, 'w') as fs:
+        with open(self.planner, 'w') as fs:
             json.dump(BASE_STRUCTURE, fs)
 
     def _save_container(self):
         """Save container"""
-        with open(self.bucket, 'w') as fs:
+        with open(self.planner, 'w') as fs:
             json.dump(self.data, fs, indent=2)
 
     def _read_container(self):
@@ -50,7 +49,7 @@ class JsonContainer:
         :return: full data object
         :rtype: dict
         """
-        with open(self.bucket) as fs:
+        with open(self.planner) as fs:
             self.data = json.load(fs)
 
             self._validate_structure()
@@ -63,7 +62,7 @@ class JsonContainer:
         :return: full data object
         :rtype: dict
         """
-        if not self.bucket.exists():
+        if not self.planner.exists():
             self._create_container()
 
         return self._read_container()
@@ -82,4 +81,8 @@ class JsonContainer:
             raise ValueError(f"New Item not of type <dict>")
 
         self.data[container_name][str(uuid.uuid4())] = new_item
+        self._save_container()
+
+    def save(self):
+        """Save data"""
         self._save_container()

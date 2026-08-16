@@ -19,13 +19,14 @@ class TestJsonContainerValidation:
     """
 
     def test_initial_state_has_base_structure(self):
-        """Verify JsonContainer initializes with default BASE_STRUCTURE data.
+        """Verify JsonContainer initializes with default BASE_STRUCTURE data and planner path.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         container = JsonContainer()
         assert container.data == BASE_STRUCTURE
         assert container.filename == "planner.json"
+        assert container.planner.name == "planner.json"
 
     def test_validate_structure_success(self, sample_base_data: dict):
         """Verify _validate_structure passes on a valid complete dictionary.
@@ -135,7 +136,7 @@ class TestJsonContainerFileOperations:
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         container = JsonContainer()
-        new_item = {"item": "Test capture", "date_created": "16/08/2026"}
+        new_item = {"item": "Test capture", "date_created": "2026-08-16"}
         container.create(new_item, container_name="bucket")
 
         target_file = isolated_storage_dir / "planner.json"
@@ -164,3 +165,21 @@ class TestJsonContainerFileOperations:
         container = JsonContainer()
         with pytest.raises(ValueError, match="New Item not of type <dict>"):
             container.create("not-a-dict", container_name="bucket")
+
+    def test_save_persists_current_data(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify save() writes modified container data to disk.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        container = JsonContainer()
+        sample_base_data["bucket"]["custom-id"] = {"item": "Saved manually"}
+        container.data = sample_base_data
+        container.save()
+
+        target_file = isolated_storage_dir / "planner.json"
+        assert target_file.exists()
+        with open(target_file, "r") as f:
+            disk_data = json.load(f)
+
+        assert "custom-id" in disk_data["bucket"]
+        assert disk_data["bucket"]["custom-id"]["item"] == "Saved manually"

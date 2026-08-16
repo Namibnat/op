@@ -6,13 +6,6 @@ import argparse
 def build_parser():
     """Parse cmd line args
 
-    DEV NOTES (DELETE LATER):
-        bucket      subcommand
-        add         subcommand
-        "text"      positional argument
-        --date      optional argument
-        --review    optional argument
-
     :return: parser
     :rtype: argparser.ArgumentParser
     """
@@ -31,7 +24,9 @@ def build_parser():
     show_bucket_parser = bucket_subparsers.add_parser("show")
     show_bucket_parser.add_argument("id", type=str)
 
-    bucket_subparsers.add_parser("list")
+    discard_bucket_parser = bucket_subparsers.add_parser("discard")
+    discard_bucket_parser.add_argument("id", type=str)
 
+    bucket_subparsers.add_parser("list")
 
     return parser

@@ -6,7 +6,6 @@ import shutil
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
-from op.config import DATE_STR_FORM
 
 
 def date_string():
@@ -191,7 +190,6 @@ def show_bucket_item_by_id(pk):
         item = bucket.get('item')
         bucket_output = f"[ID: {bucket_id}]\n\t[Created: {created_date}]\n\n{item}"
 
-
     display = (
         "\n\n"
         f"{title_line_full}"
@@ -204,12 +202,38 @@ def show_bucket_item_by_id(pk):
     print(display)
 
 
+def discard_bucket_item_by_id(pk):
+    """Discard a bucket item"""
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    status_message = "No bucket item with ID found, no action taken"
+
+    bucket_interface = BucketCollection()
+    discard_status = bucket_interface.discard_bucket(pk.strip())
+    if discard_status:
+        status_message = "Bucket item has been discarded successfully"
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n\n"
+        f" BUCKET"
+        f"{item_sep}"
+        f"\t{status_message}"
+        f"{item_sep}"
+    )
+    print(display)
+
+
 def main():
     parser = build_parser()
     args = parser.parse_args()
 
     os.system('clear')
 
+    # Bucket related actions
     if args.command == "bucket":
         if args.bucket_command == "add":
             add_new_bucket_item(args.text)
@@ -217,6 +241,8 @@ def main():
             list_bucket_items()
         elif args.bucket_command == "show":
             show_bucket_item_by_id(args.id)
+        elif args.bucket_command == "discard":
+            discard_bucket_item_by_id(args.id)
         else:
             parser.print_help()
     else:

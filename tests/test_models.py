@@ -176,6 +176,50 @@ class TestBucketCollection:
         result = bucket_col.get_bucket("nonexistent-prefix")
         assert result is None
 
+    def test_discard_bucket_success_exact_id(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify discard_bucket deletes the item from database and returns True.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        item_id = "11111111-2222-3333-4444-555555555555"
+        sample_base_data["bucket"][item_id] = {"item": "To be deleted"}
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        bucket_col = BucketCollection()
+        success = bucket_col.discard_bucket(item_id)
+        assert success is True
+        assert bucket_col.count_all_buckets() == 0
+
+        # Check persisted file
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        assert item_id not in disk_data["bucket"]
+
+    def test_discard_bucket_success_prefix_id(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify discard_bucket deletes the item when passed a prefix ID.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        item_id = "88888888-2222-3333-4444-555555555555"
+        sample_base_data["bucket"][item_id] = {"item": "To delete via prefix"}
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        bucket_col = BucketCollection()
+        success = bucket_col.discard_bucket("88888888")
+        assert success is True
+        assert bucket_col.count_all_buckets() == 0
+
+    def test_discard_bucket_not_found(self, isolated_storage_dir: Path):
+        """Verify discard_bucket returns False when item does not exist.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        bucket_col = BucketCollection()
+        success = bucket_col.discard_bucket("nonexistent-id")
+        assert success is False
+
 
 class TestProjectCollection:
     """Tests for ProjectCollection model.

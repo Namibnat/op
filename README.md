@@ -69,6 +69,24 @@ op bucket add "Start a luxury donkey spa"
 op bucket list
 ```
 
+### See a bucket item's details
+
+The ID is simply a uuid string, and providing a reasonable prefix will find the item.
+
+```commandline
+op bucket show --id-prefix--
+```
+
+### Discard a bucket item
+
+Deleting is easy, it simply takes an ID and deletes it.  The reason for this is that the bucket
+should be a place to throw ideas, and it should be easy to get rid of the ones that, on reflection
+aren't worth taking action on.
+
+```commandline
+op bucket discard --id-prefix--
+```
+
 
 ## Development
 
