@@ -70,6 +70,22 @@ class BucketCollection(CollectionModel):
             container_name=self.container_name
         )
 
+    def get_bucket(self, pk):
+        """Get a bucket item by ID
+
+        :param pk: The given ID
+        :return: The bucket item or None if not found
+        :rtype: dict or None
+        """
+        buckets = self.get_all_buckets()
+        bucket_keys = buckets.keys()
+        for primary_key in bucket_keys:
+            if primary_key.startswith(pk):
+                bucket = buckets[primary_key]
+                bucket['id'] = primary_key
+                return bucket
+        return None
+
 
 class ProjectCollection(CollectionModel):
     """Project Collection"""

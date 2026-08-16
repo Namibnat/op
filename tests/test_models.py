@@ -127,6 +127,55 @@ class TestBucketCollection:
         assert "date_created" in item_data
         assert item_data["status"] == "fresh"
 
+    def test_get_bucket_exact_match(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_bucket returns the item with id injected on exact key match.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        full_id = "550e8400-e29b-41d4-a716-446655440000"
+        sample_base_data["bucket"][full_id] = {
+            "item": "Target item",
+            "date_created": "2026-08-16",
+            "status": "fresh",
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        bucket_col = BucketCollection()
+        result = bucket_col.get_bucket(full_id)
+        assert result is not None
+        assert result["id"] == full_id
+        assert result["item"] == "Target item"
+
+    def test_get_bucket_prefix_match(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_bucket finds an item by short prefix.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        full_id = "abcdef12-3456-7890-abcd-ef1234567890"
+        sample_base_data["bucket"][full_id] = {
+            "item": "Prefix item",
+            "date_created": "2026-08-16",
+            "status": "fresh",
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        bucket_col = BucketCollection()
+        result = bucket_col.get_bucket("abcdef12")
+        assert result is not None
+        assert result["id"] == full_id
+        assert result["item"] == "Prefix item"
+
+    def test_get_bucket_not_found(self, isolated_storage_dir: Path):
+        """Verify get_bucket returns None when ID prefix does not match any item.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        bucket_col = BucketCollection()
+        result = bucket_col.get_bucket("nonexistent-prefix")
+        assert result is None
+
 
 class TestProjectCollection:
     """Tests for ProjectCollection model.

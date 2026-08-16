@@ -43,3 +43,14 @@ class TestParser:
         args = parser.parse_args(["bucket", "list"])
         assert args.command == "bucket"
         assert args.bucket_command == "list"
+
+    def test_parser_bucket_show(self):
+        """Verify parsing 'bucket show <id>' captures bucket, show, and id argument.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["bucket", "show", "a1b2c3d4"])
+        assert args.command == "bucket"
+        assert args.bucket_command == "show"
+        assert args.id == "a1b2c3d4"

@@ -28,5 +28,10 @@ def build_parser():
     add_bucket_parser = bucket_subparsers.add_parser("add")
     add_bucket_parser.add_argument("text", type=str)
 
+    show_bucket_parser = bucket_subparsers.add_parser("show")
+    show_bucket_parser.add_argument("id", type=str)
+
     bucket_subparsers.add_parser("list")
+
+
     return parser

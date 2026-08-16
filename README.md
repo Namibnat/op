@@ -95,34 +95,3 @@ BASE_STRUCTURE = {
     "calendar": {}
 }
 ```
-
-## Project Structure
-
-```
-.
-├── docs
-│   └── op_spec.md
-├── LICENSE
-├── pyproject.toml
-├── README.md
-├── src
-│   ├── op
-│   │   ├── __init__.py
-│   │   ├── config.py
-│   │   ├── models.py
-│   │   ├── op.py
-│   │   └── storage.py
-│   └── op.egg-info
-│       ├── dependency_links.txt
-│       ├── entry_points.txt
-│       ├── PKG-INFO
-│       ├── requires.txt
-│       ├── SOURCES.txt
-│       └── top_level.txt
-└── tests
-    ├── conftest.py
-    ├── test_models.py
-    ├── test_op.py
-    └── test_storage.py
-
-```

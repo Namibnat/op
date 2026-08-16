@@ -15,6 +15,7 @@ from op.op import (
     get_dashboard_data,
     add_new_bucket_item,
     list_bucket_items,
+    show_bucket_item_by_id,
 )
 from op.models import BucketCollection
 
@@ -131,3 +132,33 @@ def test_list_bucket_items_ordering(isolated_storage_dir: Path, sample_base_data
     pos_oldest = captured.out.find("Oldest item")
 
     assert pos_newest < pos_middle < pos_oldest
+
+
+def test_show_bucket_item_found(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify show_bucket_item_by_id renders item details when found.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["bucket"]["770e8400-e29b-41d4-a716-446655440000"] = {
+        "item": "Detailed capture description",
+        "date_created": "2026-08-16",
+        "status": "fresh",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    show_bucket_item_by_id("770e8400")
+    captured = capsys.readouterr()
+    assert "ID: 770e8400-e29b-41d4-a716-446655440000" in captured.out
+    assert "Created: 2026-08-16" in captured.out
+    assert "Detailed capture description" in captured.out
+
+
+def test_show_bucket_item_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify show_bucket_item_by_id renders error message when item is missing.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    show_bucket_item_by_id("99999999")
+    captured = capsys.readouterr()
+    assert "No bucket found with an ID starting with 99999999" in captured.out

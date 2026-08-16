@@ -175,6 +175,35 @@ def list_bucket_items():
     print(display)
 
 
+def show_bucket_item_by_id(pk):
+    """Show a bucket item based on a given ID"""
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    bucket_interface = BucketCollection()
+    bucket = bucket_interface.get_bucket(pk.strip())
+
+    bucket_output = f"\nNo bucket found with an ID starting with {pk.strip()}"
+    if bucket:
+        bucket_id = bucket.get('id')
+        created_date = bucket.get('date_created')
+        item = bucket.get('item')
+        bucket_output = f"[ID: {bucket_id}]\n\t[Created: {created_date}]\n\n{item}"
+
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n\n"
+        f" BUCKET"
+        f"{item_sep}"
+        f"\t{bucket_output}"
+        f"{item_sep}"
+    )
+    print(display)
+
+
 def main():
     parser = build_parser()
     args = parser.parse_args()
@@ -186,6 +215,8 @@ def main():
             add_new_bucket_item(args.text)
         elif args.bucket_command == "list":
             list_bucket_items()
+        elif args.bucket_command == "show":
+            show_bucket_item_by_id(args.id)
         else:
             parser.print_help()
     else:
