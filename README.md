@@ -98,10 +98,10 @@ The basic work structure is as follows:
 
 ## Data
 
-The data stored in `planner.json` will have the following top-level structure
+The data stored in `planner.json` will have the following top-level structure:
 
 ```
-BASE_STRUCTURE = {
+{
     "bucket": {},
     "projects": {},
     "tickets": {},
