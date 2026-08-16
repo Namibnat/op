@@ -1,5 +1,6 @@
 """Data models: structure and behaviour of data"""
 import datetime
+from op.config import DATE_STR_FORM
 
 from op.storage import JsonContainer
 
@@ -11,7 +12,7 @@ def date_day_string():
     :rtype: str
     """
     date = datetime.datetime.now()
-    return date.strftime("%Y-%m-%d")
+    return date.strftime(DATE_STR_FORM)
 
 
 class CollectionModel:

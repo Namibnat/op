@@ -10,7 +10,12 @@ from pathlib import Path
 import pytest
 
 import op
-from op.op import date_string, get_dashboard_data, add_new_bucket_item, list_bucket_items
+from op.op import (
+    date_string,
+    get_dashboard_data,
+    add_new_bucket_item,
+    list_bucket_items,
+)
 from op.models import BucketCollection
 
 
@@ -103,3 +108,26 @@ def test_list_bucket_items_populated(isolated_storage_dir: Path, capsys: pytest.
     assert "BUCKET - 2 items" in captured.out
     assert "Read chapter 5" in captured.out
     assert "Call dentist" in captured.out
+
+
+def test_list_bucket_items_ordering(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify list_bucket_items sorts newest items first.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["bucket"] = {
+        "b1": {"item": "Oldest item", "date_created": "2026-08-01"},
+        "b2": {"item": "Newest item", "date_created": "2026-08-16"},
+        "b3": {"item": "Middle item", "date_created": "2026-08-10"},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_bucket_items()
+    captured = capsys.readouterr()
+    
+    pos_newest = captured.out.find("Newest item")
+    pos_middle = captured.out.find("Middle item")
+    pos_oldest = captured.out.find("Oldest item")
+
+    assert pos_newest < pos_middle < pos_oldest

@@ -6,6 +6,7 @@ import shutil
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
+from op.config import DATE_STR_FORM
 
 
 def date_string():
@@ -141,7 +142,11 @@ def list_bucket_items():
     title_line_full = create_title_line(terminal_width)
 
     bucket_interface = BucketCollection()
-    all_buckets = bucket_interface.get_all_buckets()
+    all_buckets_dict = bucket_interface.get_all_buckets()
+    all_buckets = list(all_buckets_dict.items())
+
+    # Show newest items first
+    all_buckets.sort(key=lambda x: x[1].get('date_created', ''), reverse=True)
 
     # The first part is 22 characters, and add some space at the end of the line
     reasonable_item_length = max(10, terminal_width - 40)
@@ -150,7 +155,7 @@ def list_bucket_items():
 
     if all_buckets:
         print_lines = list()
-        for primary_key, bucket in all_buckets.items():
+        for primary_key, bucket in all_buckets:
             created_date = bucket.get('date_created')
             item = bucket.get('item')
             print_line = f"{primary_key[:8]}  {created_date}  {item[:reasonable_item_length]}"

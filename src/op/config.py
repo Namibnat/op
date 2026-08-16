@@ -12,3 +12,6 @@ BASE_STRUCTURE = {
     "balances": {},
     "calendar": {}
 }
+
+# Standard date string form in the project
+DATE_STR_FORM = "%Y-%m-%d"
