@@ -52,6 +52,7 @@ mkdir -p /path/to/op-data
 op
 
 # Buckets | Based on the GTD 'capture' idea
+
 # -- Bucket Workflow (Capture & Triage)
 op bucket add "Start a luxury donkey spa"   # Create a bucket with a text string
 op bucket list                              # List existing buckets
