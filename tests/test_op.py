@@ -19,6 +19,7 @@ from op.op import (
     discard_bucket_item_by_id,
     create_project_by_id,
     list_project_items,
+    show_project_by_id,
 )
 from op.models import BucketCollection, ProjectCollection
 
@@ -310,3 +311,42 @@ def test_list_project_items_populated(isolated_storage_dir: Path, sample_base_da
     assert "2 projects" in captured.out
     assert "First Project" in captured.out
     assert "Second Project" in captured.out
+
+
+def test_show_project_by_id_found(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify show_project_by_id renders full project details when found.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "880e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Solar Battery Setup",
+        "spec": "Install panels and inverter",
+        "state": "active",
+        "done_when": "Grid tie functional",
+        "date_created": "2026-08-17",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    show_project_by_id("880e8400")
+    captured = capsys.readouterr()
+
+    assert f"ID: {project_id}" in captured.out
+    assert "Created: 2026-08-17" in captured.out
+    assert "Solar Battery Setup" in captured.out
+    assert "Project spec:" in captured.out
+    assert "Install panels and inverter" in captured.out
+    assert "Done when:" in captured.out
+    assert "Grid tie functional" in captured.out
+    assert "State: [Active]" in captured.out
+
+
+def test_show_project_by_id_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify show_project_by_id renders not found message when project doesn't exist.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    show_project_by_id("99999999")
+    captured = capsys.readouterr()
+    assert "No project found with an ID starting with 99999999" in captured.out

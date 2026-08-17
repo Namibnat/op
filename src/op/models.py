@@ -154,6 +154,25 @@ class ProjectCollection(CollectionModel):
         projects = self.read_all(self.container_name)
         return projects
 
+    def get_project(self, pk: str) -> dict | None:
+        """Show project by ID
+
+        :param pk: project ID
+        :return: A single project or None
+        """
+        projects = self.get_all_projects()
+        if not projects:
+            return None
+
+        for primary_key in projects.keys():
+            if primary_key.startswith(pk):
+                project = projects[primary_key]
+                project['id'] = primary_key
+                return project
+
+        return None
+
+
 class TicketCollection(CollectionModel):
     """Ticket Collection"""
     container_name = "tickets"

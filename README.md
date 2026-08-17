@@ -39,7 +39,6 @@ export OP_DATA_DIR=/path/to/op-data
 
 ## Quickstart
 
-After installation, you can do the following:
 
 ### Create the path to where your data will live
 
@@ -47,60 +46,27 @@ After installation, you can do the following:
 mkdir -p /path/to/op-data
 ```
 
-### See your day's dashboard
-```commandline
+
+```bash
+# Daily overview dashboard
 op
+
+# Buckets | Based on the GTD 'capture' idea
+# -- Bucket Workflow (Capture & Triage)
+op bucket add "Start a luxury donkey spa"   # Create a bucket with a text string
+op bucket list                              # List existing buckets
+op bucket --id-prefix--                     # See one bucket's details by giving a prefix of the ID
+op bucket discard --id-prefix--             # Discard a bucket
+
+
+# Projects | Any action requiring more than one step
+
+# -- Project Workflow
+op project create --id-prefix--             # Create a project based on a bucket (deletes the bucket)
+op project list                             # Lists all projects
+op project show --id-prefix--               # Show a project's details
+
 ```
-
-### Add a new bucket item.
-
-The "bucket" refers to items that you capture to decide what to do with later.
-They are rough plans that still need to be sorted.
-
-To capture a new bucket item, you do the following:
-
-```commandline
-op bucket add "Start a luxury donkey spa"
-```
-
-### See a list of all your bucket items
-
-```commandline
-op bucket list
-```
-
-### See a bucket item's details
-
-The ID is simply a uuid string, and providing a reasonable prefix will find the item.
-
-```commandline
-op bucket show --id-prefix--
-```
-
-### Discard a bucket item
-
-Deleting is easy, it simply takes an ID and deletes it.  The reason for this is that the bucket
-should be a place to throw ideas, and it should be easy to get rid of the ones that, on reflection
-aren't worth taking action on.
-
-```commandline
-op bucket discard --id-prefix--
-```
-
-### Create a project from a bucket
-
-This will create a new project, and also quietly deletes the bucket.
-
-```commandline
-op project create --id-prefix--
-```
-
-### List all projects
-
-```commandline
-op project list
-```
-
 
 ## Development
 

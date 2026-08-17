@@ -291,6 +291,58 @@ class TestProjectCollection:
         assert "p1" in projects
         assert projects["p1"]["name"] == "Project 1"
 
+    def test_get_project_exact_match(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_project returns project with injected id on exact key match.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        full_id = "660e8400-e29b-41d4-a716-446655440000"
+        sample_base_data["projects"][full_id] = {
+            "name": "Exact Project",
+            "spec": "Project spec details",
+            "state": "active",
+            "done_when": "Everything complete",
+            "date_created": "2026-08-17",
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        project = project_col.get_project(full_id)
+        assert project is not None
+        assert project["id"] == full_id
+        assert project["name"] == "Exact Project"
+
+    def test_get_project_prefix_match(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_project returns project on prefix match.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        full_id = "770e8400-e29b-41d4-a716-446655440000"
+        sample_base_data["projects"][full_id] = {
+            "name": "Prefix Project",
+            "spec": "Project spec details",
+            "state": "not_started",
+            "done_when": "Everything complete",
+            "date_created": "2026-08-17",
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        project = project_col.get_project("770e8400")
+        assert project is not None
+        assert project["id"] == full_id
+        assert project["name"] == "Prefix Project"
+
+    def test_get_project_not_found(self, isolated_storage_dir: Path):
+        """Verify get_project returns None when project ID prefix doesn't match.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        project_col = ProjectCollection()
+        assert project_col.get_project("nonexistent-prefix") is None
+
 
 class TestTicketCollection:
     """Tests for TicketCollection model.

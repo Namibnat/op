@@ -349,6 +349,48 @@ def list_project_items():
     print(display)
 
 
+def show_project_by_id(pk: str):
+    """Show a single project by ID
+
+    :param pk: Project ID
+    """
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    project_interface = ProjectCollection()
+    project = project_interface.get_project(pk.strip())
+
+    project_output = f"\nNo project found with an ID starting with {pk.strip()}"
+    if project:
+        project_id = project.get("id")
+        name = project.get("name")
+        spec = project.get("spec")
+        state = project.get("state")
+        if isinstance(state, str):
+            state = state.title()
+        done_when = project.get("done_when")
+        date_created = project.get("date_created")
+
+        project_output = (f"[ID: {project_id}  Created: {date_created}]\n"
+                          f"{name}\n\n"
+                          f"Project spec:\n\t{spec}\n\n"
+                          f"Done when:\n\t{done_when}\n\n"
+                          f"State: [{state}]"
+                          )
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n\n"
+        f" PROJECT"
+        f"{item_sep}"
+        f"{project_output}"
+        f"{item_sep}"
+    )
+    print(display)
+
+
 def main():
     """Run op"""
     parser = build_parser()
@@ -375,6 +417,8 @@ def main():
             create_project_by_id(args.id)
         elif args.project_command == "list":
             list_project_items()
+        elif args.project_command == "show":
+            show_project_by_id(args.id)
         else:
             parser.print_help()
 
