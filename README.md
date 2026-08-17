@@ -95,6 +95,12 @@ This will create a new project, and also quietly deletes the bucket.
 op project create --id-prefix--
 ```
 
+### List all projects
+
+```commandline
+op project list
+```
+
 
 ## Development
 

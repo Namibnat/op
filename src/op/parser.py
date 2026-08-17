@@ -37,4 +37,6 @@ def build_parser() -> argparse.ArgumentParser:
     create_project_parser = project_subparsers.add_parser("create")
     create_project_parser.add_argument("id", type=str)
 
+    project_subparsers.add_parser("list")
+
     return parser

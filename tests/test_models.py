@@ -268,6 +268,29 @@ class TestProjectCollection:
         assert project_id in disk_data["projects"]
         assert disk_data["projects"][project_id]["name"] == "Build treehouse"
 
+    def test_get_all_projects_empty(self, isolated_storage_dir: Path):
+        """Verify get_all_projects returns empty dictionary when no projects exist.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        project_col = ProjectCollection()
+        projects = project_col.get_all_projects()
+        assert projects == {}
+
+    def test_get_all_projects_populated(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_all_projects returns populated projects dictionary.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["projects"]["p1"] = {"name": "Project 1"}
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        projects = project_col.get_all_projects()
+        assert "p1" in projects
+        assert projects["p1"]["name"] == "Project 1"
+
 
 class TestTicketCollection:
     """Tests for TicketCollection model.

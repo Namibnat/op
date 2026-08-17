@@ -18,6 +18,7 @@ from op.op import (
     show_bucket_item_by_id,
     discard_bucket_item_by_id,
     create_project_by_id,
+    list_project_items,
 )
 from op.models import BucketCollection, ProjectCollection
 
@@ -279,3 +280,33 @@ def test_create_project_by_id_inactive(isolated_storage_dir: Path, sample_base_d
     created_proj = list(projects.values())[0]
     assert created_proj["state"] == "not_started"
     assert project_col.count_active_projects() == 0
+
+
+def test_list_project_items_empty(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify list_project_items renders empty state without crashing.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    list_project_items()
+    captured = capsys.readouterr()
+    assert "0 projects" in captured.out
+    assert "No projects" in captured.out
+
+
+def test_list_project_items_populated(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify list_project_items renders formatted project list.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["projects"] = {
+        "p1": {"name": "First Project", "date_created": "2026-08-16", "state": "active"},
+        "p2": {"name": "Second Project", "date_created": "2026-08-17", "state": "not_started"},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_project_items()
+    captured = capsys.readouterr()
+    assert "2 projects" in captured.out
+    assert "First Project" in captured.out
+    assert "Second Project" in captured.out

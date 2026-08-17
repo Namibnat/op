@@ -79,7 +79,7 @@ class BucketCollection(CollectionModel):
         buckets = self.get_all_buckets()
         if not buckets:
             return None
-        
+
         for primary_key in buckets.keys():
             if primary_key.startswith(pk):
                 bucket = buckets[primary_key]
@@ -146,6 +146,13 @@ class ProjectCollection(CollectionModel):
         projects = self.read_all(self.container_name)
         return projects[private_key], private_key
 
+    def get_all_projects(self) -> dict | None:
+        """Get all projects
+
+        Return all projects
+        """
+        projects = self.read_all(self.container_name)
+        return projects
 
 class TicketCollection(CollectionModel):
     """Ticket Collection"""

@@ -139,10 +139,12 @@ def list_bucket_items():
 
     bucket_interface = BucketCollection()
     all_buckets_dict = bucket_interface.get_all_buckets()
-    all_buckets = list(all_buckets_dict.items())
+    all_buckets = {}
+    if all_buckets_dict:
+        all_buckets = list(all_buckets_dict.items())
 
-    # Show newest items first
-    all_buckets.sort(key=lambda x: x[1].get('date_created', ''), reverse=True)
+        # Show newest items first
+        all_buckets.sort(key=lambda x: x[1].get('date_created', ''), reverse=True)
 
     # The first part is 22 characters, and add some space at the end of the line
     reasonable_item_length = max(10, terminal_width - 40)
@@ -305,6 +307,48 @@ def create_project_by_id(pk: str):
     print(display)
 
 
+def list_project_items():
+    """List all projects"""
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    project_interface = ProjectCollection()
+    all_project_dict = project_interface.get_all_projects()
+    all_projects = []
+    if all_project_dict:
+        all_projects = list(all_project_dict.items())
+
+        # Show newest items first
+        all_projects.sort(key=lambda x: x[1].get('date_created', ''), reverse=True)
+
+    # The first part is 22 characters, and add some space at the end of the line
+    reasonable_item_length = max(10, terminal_width - 40)
+
+    bucket_items_string = "\tNo projects"
+
+    if all_projects:
+        print_lines = list()
+        for primary_key, project in all_projects:
+            created_date = project.get('date_created')
+            name = project.get('name')
+            print_line = f"{primary_key[:8]}  {created_date}  {name[:reasonable_item_length]}"
+            print_lines.append(print_line)
+
+        bucket_items_string = "\n\t".join(print_lines)
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n\n"
+        f" PROJECTS - {len(all_projects)} projects"
+        f"{item_sep}"
+        f"\t{bucket_items_string}"
+        f"{item_sep}"
+    )
+    print(display)
+
+
 def main():
     """Run op"""
     parser = build_parser()
@@ -329,6 +373,8 @@ def main():
     elif args.command == "project":
         if args.project_command == "create":
             create_project_by_id(args.id)
+        elif args.project_command == "list":
+            list_project_items()
         else:
             parser.print_help()
 

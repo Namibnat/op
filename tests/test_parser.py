@@ -76,3 +76,13 @@ class TestParser:
         assert args.command == "project"
         assert args.project_command == "create"
         assert args.id == "a1b2c3d4"
+
+    def test_parser_project_list(self):
+        """Verify parsing 'project list' captures project and list subcommands.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["project", "list"])
+        assert args.command == "project"
+        assert args.project_command == "list"
