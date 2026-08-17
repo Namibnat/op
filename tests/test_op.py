@@ -271,11 +271,11 @@ def test_create_project_by_id_inactive(isolated_storage_dir: Path, sample_base_d
     captured = capsys.readouterr()
 
     assert "Created project" in captured.out
-    assert "Inactive" in captured.out
+    assert "Not_Started" in captured.out
 
     project_col = ProjectCollection()
     projects = project_col.read_all("projects")
     assert len(projects) == 1
     created_proj = list(projects.values())[0]
-    assert created_proj["state"] == "inactive"
+    assert created_proj["state"] == "not_started"
     assert project_col.count_active_projects() == 0

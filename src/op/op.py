@@ -268,7 +268,7 @@ def create_project_by_id(pk):
     )
     print(display)
 
-    project_state = 'inactive'
+    project_state = 'not_started'
     project_name = input("Name the project: ")
     project_spec = input("Describe the project in more detail: ")
     project_done_when = input("Describe the conditions to be met to call this project done: ")

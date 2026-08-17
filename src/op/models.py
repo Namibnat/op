@@ -1,23 +1,8 @@
 """Data models: structure and behaviour of data"""
 import datetime
-from op.config import DATE_STR_FORM
 
 from op.storage import JsonContainer
-
-
-# class NullContainer(Exception):
-#     """Raise a null container error"""
-#     pass
-
-
-def date_day_string():
-    """Create a formatted date string for printing
-
-    :return: Formatted date string
-    :rtype: str
-    """
-    date = datetime.datetime.now()
-    return date.strftime(DATE_STR_FORM)
+from op.schema import Bucket, Project
 
 
 class CollectionModel:
@@ -46,13 +31,6 @@ class CollectionModel:
         projects = data.get(container_name)
         return projects
 
-    # def get_all_type(self):
-    #     """Get all buckets"""
-    #     if not self.container_name:
-    #         raise NullContainer("Getting a type requires a container to be defined")
-    #     buckets = self.read_all(self.container_name)
-    #     return buckets
-
 
 class BucketCollection(CollectionModel):
     container_name = "bucket"
@@ -73,13 +51,15 @@ class BucketCollection(CollectionModel):
 
     def create(self, new_bucket_item):
         """Add a new item to the collection bucket"""
-        capture_bucket = {
-            "item": new_bucket_item,
-            "date_created": date_day_string(),
-            "status": "fresh"
-        }
+        capture_bucket = Bucket.model_validate(
+            {
+                "item": new_bucket_item,
+                "date_created": datetime.date.today()
+            }
+        )
+
         self.json_container.create(
-            capture_bucket,
+            capture_bucket.model_dump(mode="json"),
             container_name=self.container_name
         )
 
@@ -147,12 +127,14 @@ class ProjectCollection(CollectionModel):
         :return: project and project ID
         :rtype: tuple(dict, str)
         """
-        capture_project = {
-            **new_project_item,
-            "date_created": date_day_string(),
-        }
+        capture_project = Project.model_validate(
+            {
+                **new_project_item,
+                "date_created": datetime.date.today(),
+            }
+        )
         private_key = self.json_container.create(
-            capture_project,
+            capture_project.model_dump(mode="json"),
             container_name=self.container_name
         )
         projects = self.read_all(self.container_name)

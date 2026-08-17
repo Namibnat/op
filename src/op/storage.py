@@ -67,7 +67,7 @@ class JsonContainer:
 
         return self._read_container()
 
-    def create(self, new_item: dict, container_name: str):
+    def create(self, new_item: dict, container_name: str) -> str:
         """Create a new field in one of the containers
 
         :param new_item: The new item to be added
@@ -78,9 +78,6 @@ class JsonContainer:
         self.data = self.read()
         if container_name not in self.data:
             raise ValueError(f"No container named {container_name} exists")
-
-        if not isinstance(new_item, dict):
-            raise ValueError(f"New Item not of type <dict>")
 
         private_key = str(uuid.uuid4())
 

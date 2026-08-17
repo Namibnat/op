@@ -167,15 +167,6 @@ class TestJsonContainerFileOperations:
         with pytest.raises(ValueError, match="No container named nonexistent exists"):
             container.create({"text": "abc"}, container_name="nonexistent")
 
-    def test_create_item_invalid_type_raises_value_error(self, isolated_storage_dir: Path):
-        """Verify create() raises ValueError when new_item is not a dictionary.
-
-        # Authored by Antigravity Agent (Gemini 3.7 Flash)
-        """
-        container = JsonContainer()
-        with pytest.raises(ValueError, match="New Item not of type <dict>"):
-            container.create("not-a-dict", container_name="bucket")
-
     def test_save_persists_current_data(self, isolated_storage_dir: Path, sample_base_data: dict):
         """Verify save() writes modified container data to disk.
 

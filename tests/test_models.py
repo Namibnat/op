@@ -11,23 +11,12 @@ import pytest
 
 from op.config import BASE_STRUCTURE
 from op.models import (
-    date_day_string,
     CollectionModel,
     BucketCollection,
     ProjectCollection,
     TicketCollection,
     RoutinesCollection,
 )
-
-
-def test_date_day_string():
-    """Verify date_day_string produces ISO YYYY-MM-DD formatted string.
-
-    # Authored by Antigravity Agent (Gemini 3.7 Flash)
-    """
-    date_str = date_day_string()
-    parsed = datetime.datetime.strptime(date_str, "%Y-%m-%d")
-    assert parsed.year == datetime.datetime.now().year
 
 
 class TestCollectionModelBase:
@@ -113,7 +102,7 @@ class TestBucketCollection:
         assert bucket_col.count_all_buckets() == 3
 
     def test_create_adds_bucket_item(self, isolated_storage_dir: Path):
-        """Verify create() stores a formatted bucket capture item with date_created and status fresh.
+        """Verify create() stores a formatted bucket capture item with date_created.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
@@ -125,7 +114,6 @@ class TestBucketCollection:
         item_data = list(items.values())[0]
         assert item_data["item"] == "Read chapter 4"
         assert "date_created" in item_data
-        assert item_data["status"] == "fresh"
 
     def test_get_bucket_exact_match(self, isolated_storage_dir: Path, sample_base_data: dict):
         """Verify get_bucket returns the item with id injected on exact key match.
