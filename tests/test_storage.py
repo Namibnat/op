@@ -137,7 +137,7 @@ class TestJsonContainerFileOperations:
         """
         container = JsonContainer()
         new_item = {"item": "Test capture", "date_created": "2026-08-16"}
-        container.create(new_item, container_name="bucket")
+        key = container.create(new_item, container_name="bucket")
 
         target_file = isolated_storage_dir / "planner.json"
         assert target_file.exists()
@@ -145,8 +145,18 @@ class TestJsonContainerFileOperations:
             saved_data = json.load(f)
 
         assert len(saved_data["bucket"]) == 1
-        created_id = list(saved_data["bucket"].keys())[0]
-        assert saved_data["bucket"][created_id] == new_item
+        assert key in saved_data["bucket"]
+        assert saved_data["bucket"][key] == new_item
+
+    def test_create_returns_generated_key(self, isolated_storage_dir: Path):
+        """Verify create() returns the string identifier generated for the item.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        container = JsonContainer()
+        key = container.create({"name": "New Project"}, container_name="projects")
+        assert isinstance(key, str)
+        assert len(key) == 36
 
     def test_create_item_invalid_container_raises_value_error(self, isolated_storage_dir: Path):
         """Verify create() raises ValueError when given an invalid container name.

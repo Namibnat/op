@@ -12,7 +12,7 @@ def build_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
 
-    # Bucket Args
+    # ---- Bucket Args ----------------------------
     bucket_parser = subparsers.add_parser('bucket')
     bucket_subparsers = bucket_parser.add_subparsers(
         dest="bucket_command"
@@ -28,5 +28,14 @@ def build_parser():
     discard_bucket_parser.add_argument("id", type=str)
 
     bucket_subparsers.add_parser("list")
+
+    # ---- Project Args ----------------------------
+    project_parser = subparsers.add_parser('project')
+    project_subparsers = project_parser.add_subparsers(
+        dest="project_command"
+    )
+
+    create_project_parser = project_subparsers.add_parser("create")
+    create_project_parser.add_argument("id", type=str)
 
     return parser

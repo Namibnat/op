@@ -65,3 +65,14 @@ class TestParser:
         assert args.command == "bucket"
         assert args.bucket_command == "discard"
         assert args.id == "a1b2c3d4"
+
+    def test_parser_project_create(self):
+        """Verify parsing 'project create <id>' captures project, create, and id argument.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["project", "create", "a1b2c3d4"])
+        assert args.command == "project"
+        assert args.project_command == "create"
+        assert args.id == "a1b2c3d4"

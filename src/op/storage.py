@@ -72,6 +72,8 @@ class JsonContainer:
 
         :param new_item: The new item to be added
         :param container_name: Which container it should go to.
+        :return: Private key
+        :rtype: str
         """
         self.data = self.read()
         if container_name not in self.data:
@@ -80,8 +82,12 @@ class JsonContainer:
         if not isinstance(new_item, dict):
             raise ValueError(f"New Item not of type <dict>")
 
-        self.data[container_name][str(uuid.uuid4())] = new_item
+        private_key = str(uuid.uuid4())
+
+        self.data[container_name][private_key] = new_item
         self._save_container()
+
+        return private_key
 
     def save(self):
         """Save data"""

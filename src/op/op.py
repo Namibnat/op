@@ -175,7 +175,10 @@ def list_bucket_items():
 
 
 def show_bucket_item_by_id(pk):
-    """Show a bucket item based on a given ID"""
+    """Show a bucket item based on a given ID
+
+    :param pk: A bucket ID
+    """
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
     title_line_full = create_title_line(terminal_width)
@@ -203,7 +206,10 @@ def show_bucket_item_by_id(pk):
 
 
 def discard_bucket_item_by_id(pk):
-    """Discard a bucket item"""
+    """Discard a bucket item
+
+    :param pk: A bucket ID
+    """
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
     title_line_full = create_title_line(terminal_width)
@@ -227,7 +233,85 @@ def discard_bucket_item_by_id(pk):
     print(display)
 
 
+def create_project_by_id(pk):
+    """Create a project by a bucket ID
+
+    Take a bucket items and turn it into a project.  Discard the bucket on success.
+
+    Once again, there is a bit of philosophy here.  Buckets (ideas) are cheap, and projects
+    will be editable, so there isn't going to be a long "are you happy" loop.  Make the project
+    and delete the bucket all in one go.
+
+    :param pk: A bucket ID
+    """
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+
+    bucket_interface = BucketCollection()
+    if not bucket_interface.get_bucket(pk.strip()):
+        title_line_full = create_title_line(terminal_width)
+
+        display = (
+            "\n\n"
+            f"{title_line_full}"
+            "\n\n\n"
+            f"\tProject creation failed, no bucket with ID: {pk.strip()}\n"
+        )
+        print(display)
+        return
+
+
+    show_bucket_item_by_id(pk)
+
+    display = (
+        f"\tCreate project...\n"
+    )
+    print(display)
+
+    project_state = 'inactive'
+    project_name = input("Name the project: ")
+    project_spec = input("Describe the project in more detail: ")
+    project_done_when = input("Describe the conditions to be met to call this project done: ")
+    raw_state = input("Type Y if the project is active now: y/n ")
+    if raw_state.lower().strip().startswith('y'):
+        project_state = 'active'
+
+
+    new_project_item = {
+        'name': project_name,
+        'spec': project_spec,
+        'state': project_state,
+        'done_when': project_done_when
+    }
+
+    project_interface = ProjectCollection()
+    new_project, primary_key = project_interface.create(new_project_item)
+
+    os.system('clear')
+    show_bucket_item_by_id(pk)
+
+    bucket_interface = BucketCollection()
+    bucket_interface.discard_bucket(pk.strip())
+
+    project_state = new_project.get('state')
+
+    display = (
+        " PROJECT"
+        "\n"
+        f"Created project [{primary_key[:8]} - {project_state.title()}]\n"
+        f"\tName: {new_project['name']}\n"
+        f"\tProject Spec: {new_project['spec']}\n"
+        f"\tDone When: {new_project['done_when']}\n"
+        f"\tCreated: {new_project['date_created']}\n"
+        f"{item_sep}"
+        f"Bucket {pk} deleted."
+    )
+
+    print(display)
+
+
 def main():
+    """Run op"""
     parser = build_parser()
     args = parser.parse_args()
 
@@ -245,6 +329,15 @@ def main():
             discard_bucket_item_by_id(args.id)
         else:
             parser.print_help()
+
+    # Project related actions
+    elif args.command == "project":
+        if args.project_command == "create":
+            create_project_by_id(args.id)
+        else:
+            parser.print_help()
+
+    # Dashboard
     else:
         dashboard_data = get_dashboard_data()
         print_dashboard(dashboard_data)

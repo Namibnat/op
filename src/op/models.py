@@ -5,6 +5,11 @@ from op.config import DATE_STR_FORM
 from op.storage import JsonContainer
 
 
+# class NullContainer(Exception):
+#     """Raise a null container error"""
+#     pass
+
+
 def date_day_string():
     """Create a formatted date string for printing
 
@@ -19,6 +24,7 @@ class CollectionModel:
 
     def __init__(self):
         self.json_container = JsonContainer()
+        # self.container_name: str | None = None
 
     def read_data(self):
         """Read the data
@@ -39,6 +45,13 @@ class CollectionModel:
         data = self.read_data()
         projects = data.get(container_name)
         return projects
+
+    # def get_all_type(self):
+    #     """Get all buckets"""
+    #     if not self.container_name:
+    #         raise NullContainer("Getting a type requires a container to be defined")
+    #     buckets = self.read_all(self.container_name)
+    #     return buckets
 
 
 class BucketCollection(CollectionModel):
@@ -126,8 +139,24 @@ class ProjectCollection(CollectionModel):
 
         return active_projects
 
-    def create(self):
-        pass
+    def create(self, new_project_item):
+        """
+        Create new project
+
+        :param new_project_item:
+        :return: project and project ID
+        :rtype: tuple(dict, str)
+        """
+        capture_project = {
+            **new_project_item,
+            "date_created": date_day_string(),
+        }
+        private_key = self.json_container.create(
+            capture_project,
+            container_name=self.container_name
+        )
+        projects = self.read_all(self.container_name)
+        return projects[private_key], private_key
 
 
 class TicketCollection(CollectionModel):

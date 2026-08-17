@@ -87,6 +87,14 @@ aren't worth taking action on.
 op bucket discard --id-prefix--
 ```
 
+### Create a project from a bucket
+
+This will create a new project, and also quietly deletes the bucket.
+
+```commandline
+op project create --id-prefix--
+```
+
 
 ## Development
 

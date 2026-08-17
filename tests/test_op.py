@@ -17,8 +17,9 @@ from op.op import (
     list_bucket_items,
     show_bucket_item_by_id,
     discard_bucket_item_by_id,
+    create_project_by_id,
 )
-from op.models import BucketCollection
+from op.models import BucketCollection, ProjectCollection
 
 
 def test_package_import():
@@ -194,3 +195,87 @@ def test_discard_bucket_item_not_found(isolated_storage_dir: Path, capsys: pytes
     discard_bucket_item_by_id("00000000")
     captured = capsys.readouterr()
     assert "No bucket item with ID found, no action taken" in captured.out
+
+
+def test_create_project_by_id_bucket_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify create_project_by_id exits with error when bucket item does not exist.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    create_project_by_id("missing-id")
+    captured = capsys.readouterr()
+    assert "Project creation failed, no bucket with ID: missing-id" in captured.out
+
+
+def test_create_project_by_id_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify create_project_by_id interactively creates active project and deletes original bucket item.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    bucket_id = "440e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["bucket"][bucket_id] = {
+        "item": "Convert to full project",
+        "date_created": "2026-08-16",
+        "status": "fresh",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    # Mock interactive terminal inputs: name, spec, done_when, active y/n
+    user_inputs = iter(["Treehouse Build", "Build in the backyard oak", "Finished roof and paint", "yes"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_project_by_id("440e8400")
+    captured = capsys.readouterr()
+
+    assert "Created project" in captured.out
+    assert "Active" in captured.out
+    assert "Name: Treehouse Build" in captured.out
+    assert "Project Spec: Build in the backyard oak" in captured.out
+    assert "Done When: Finished roof and paint" in captured.out
+
+    # Verify bucket item was removed
+    bucket_col = BucketCollection()
+    assert bucket_col.count_all_buckets() == 0
+
+    # Verify project was created in storage
+    project_col = ProjectCollection()
+    projects = project_col.read_all("projects")
+    assert len(projects) == 1
+    created_proj = list(projects.values())[0]
+    assert created_proj["name"] == "Treehouse Build"
+    assert created_proj["spec"] == "Build in the backyard oak"
+    assert created_proj["state"] == "active"
+    assert created_proj["done_when"] == "Finished roof and paint"
+    assert project_col.count_active_projects() == 1
+
+
+def test_create_project_by_id_inactive(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify create_project_by_id interactively creates inactive project when user answers 'n'.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    bucket_id = "550e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["bucket"][bucket_id] = {
+        "item": "Someday project idea",
+        "date_created": "2026-08-16",
+        "status": "fresh",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    user_inputs = iter(["Learn French", "Grammar and vocabulary", "B2 level", "n"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_project_by_id("550e8400")
+    captured = capsys.readouterr()
+
+    assert "Created project" in captured.out
+    assert "Inactive" in captured.out
+
+    project_col = ProjectCollection()
+    projects = project_col.read_all("projects")
+    assert len(projects) == 1
+    created_proj = list(projects.values())[0]
+    assert created_proj["state"] == "inactive"
+    assert project_col.count_active_projects() == 0

@@ -253,6 +253,33 @@ class TestProjectCollection:
         project_col = ProjectCollection()
         assert project_col.count_active_projects() == 2
 
+    def test_create_project(self, isolated_storage_dir: Path):
+        """Verify create() stores project with date_created and returns (project_dict, id).
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        project_col = ProjectCollection()
+        new_project_data = {
+            "name": "Build treehouse",
+            "spec": "Two-story wooden treehouse",
+            "state": "active",
+            "done_when": "Roof and ladder complete",
+        }
+        project, project_id = project_col.create(new_project_data)
+
+        assert isinstance(project_id, str)
+        assert len(project_id) == 36
+        assert project["name"] == "Build treehouse"
+        assert project["spec"] == "Two-story wooden treehouse"
+        assert project["done_when"] == "Roof and ladder complete"
+        assert "date_created" in project
+
+        # Verify persisted on disk
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        assert project_id in disk_data["projects"]
+        assert disk_data["projects"][project_id]["name"] == "Build treehouse"
+
 
 class TestTicketCollection:
     """Tests for TicketCollection model.
