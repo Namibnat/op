@@ -8,34 +8,31 @@ from op.models import BucketCollection, ProjectCollection, TicketCollection, Rou
 from op.parser import build_parser
 
 
-def date_string():
+def date_string() -> str:
     """Create a formatted date string for printing
 
     :return: Formatted date string
-    :rtype: str
     """
     date = datetime.datetime.now()
     return date.strftime("%A, %d %B %Y")
 
 
-def create_item_seperator(terminal_width):
+def create_item_seperator(terminal_width: int) -> str:
     """Create item separator
 
     :param terminal_width: The width of the terminal window as an int
     :return: Formatting to add space between items
-    :rtype: str
     """
     full_line = "_" * terminal_width
     item_sep = f"\n\n\n{full_line}\n\n"
     return item_sep
 
 
-def create_title_line(terminal_width):
+def create_title_line(terminal_width: int) -> str:
     """Create the top title line
 
     :param terminal_width: The width of the terminal window as an int
     :return: Title Line
-    :rtype: str
     """
     formatted_date = date_string()
 
@@ -107,7 +104,7 @@ def get_dashboard_data():
     return dashboard_data
 
 
-def add_new_bucket_item(text):
+def add_new_bucket_item(text: str):
     """Add a new item to bucket
 
     :param text: Text to insert into a new bucket
@@ -174,7 +171,7 @@ def list_bucket_items():
     print(display)
 
 
-def show_bucket_item_by_id(pk):
+def show_bucket_item_by_id(pk: str):
     """Show a bucket item based on a given ID
 
     :param pk: A bucket ID
@@ -205,7 +202,7 @@ def show_bucket_item_by_id(pk):
     print(display)
 
 
-def discard_bucket_item_by_id(pk):
+def discard_bucket_item_by_id(pk: str):
     """Discard a bucket item
 
     :param pk: A bucket ID
@@ -233,7 +230,7 @@ def discard_bucket_item_by_id(pk):
     print(display)
 
 
-def create_project_by_id(pk):
+def create_project_by_id(pk: str):
     """Create a project by a bucket ID
 
     Take a bucket items and turn it into a project.  Discard the bucket on success.
@@ -260,7 +257,6 @@ def create_project_by_id(pk):
         print(display)
         return
 
-
     show_bucket_item_by_id(pk)
 
     display = (
@@ -275,7 +271,6 @@ def create_project_by_id(pk):
     raw_state = input("Type Y if the project is active now: y/n ")
     if raw_state.lower().strip().startswith('y'):
         project_state = 'active'
-
 
     new_project_item = {
         'name': project_name,

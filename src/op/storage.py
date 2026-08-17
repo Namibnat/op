@@ -43,11 +43,10 @@ class JsonContainer:
         with open(self.planner, 'w') as fs:
             json.dump(self.data, fs, indent=2)
 
-    def _read_container(self):
+    def _read_container(self) -> dict:
         """Read data
 
         :return: full data object
-        :rtype: dict
         """
         with open(self.planner) as fs:
             self.data = json.load(fs)
@@ -56,11 +55,10 @@ class JsonContainer:
 
             return self.data
 
-    def read(self):
+    def read(self) -> dict:
         """Read data
 
         :return: full data object
-        :rtype: dict
         """
         if not self.planner.exists():
             self._create_container()
@@ -73,7 +71,6 @@ class JsonContainer:
         :param new_item: The new item to be added
         :param container_name: Which container it should go to.
         :return: Private key
-        :rtype: str
         """
         self.data = self.read()
         if container_name not in self.data:

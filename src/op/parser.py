@@ -3,11 +3,10 @@
 import argparse
 
 
-def build_parser():
+def build_parser() -> argparse.ArgumentParser:
     """Parse cmd line args
 
     :return: parser
-    :rtype: argparser.ArgumentParser
     """
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")

@@ -6,50 +6,57 @@ from op.schema import Bucket, Project
 
 
 class CollectionModel:
+    """Base collection model"""
 
     def __init__(self):
         self.json_container = JsonContainer()
-        # self.container_name: str | None = None
 
-    def read_data(self):
+    def read_data(self) -> dict:
         """Read the data
 
         :return: The full set of data
-        :rtype: dict
         """
         data = self.json_container.read()
         return data
 
-    def read_all(self, container_name):
+    def read_all(self, container_name: str) -> dict | None:
         """Read all container entries
 
         :param container_name: container name
-        :return: all bucket objects
-        :rtype: dict
+        :return: all container objects
         """
         data = self.read_data()
-        projects = data.get(container_name)
-        return projects
+        container = data.get(container_name)
+        if container is None:
+            return None
+        if not isinstance(container, dict):
+            raise TypeError(f"Found object of type {type(container)}")
+        return container
 
 
 class BucketCollection(CollectionModel):
+    """Bucket Collection Model"""
     container_name = "bucket"
 
-    def get_all_buckets(self):
-        """Get all buckets"""
+    def get_all_buckets(self) -> dict | None:
+        """Get all buckets
+
+        :return: Full collection of buckets
+        """
         buckets = self.read_all(self.container_name)
         return buckets
 
-    def count_all_buckets(self):
+    def count_all_buckets(self) -> int:
         """Count all buckets
 
         :return: Number of buckets
-        :rtype: int
         """
         buckets = self.get_all_buckets()
+        if not buckets:
+            return 0
         return len(buckets)
 
-    def create(self, new_bucket_item):
+    def create(self, new_bucket_item: str):
         """Add a new item to the collection bucket"""
         capture_bucket = Bucket.model_validate(
             {
@@ -63,23 +70,24 @@ class BucketCollection(CollectionModel):
             container_name=self.container_name
         )
 
-    def get_bucket(self, pk):
+    def get_bucket(self, pk: str) -> dict | None:
         """Get a bucket item by ID
 
         :param pk: The given ID
         :return: The bucket item or None if not found
-        :rtype: dict or None
         """
         buckets = self.get_all_buckets()
-        bucket_keys = buckets.keys()
-        for primary_key in bucket_keys:
+        if not buckets:
+            return None
+        
+        for primary_key in buckets.keys():
             if primary_key.startswith(pk):
                 bucket = buckets[primary_key]
                 bucket['id'] = primary_key
                 return bucket
         return None
 
-    def discard_bucket(self, pk):
+    def discard_bucket(self, pk: str) -> bool:
         """Discard a bucket item by ID
 
         The idea is that bucket items are cheap, just ideas.
@@ -87,7 +95,6 @@ class BucketCollection(CollectionModel):
 
         :param pk: The given ID
         :return: Delete success status, True if delete successful
-        :rtype: bool
         """
         bucket = self.get_bucket(pk)
         if not isinstance(bucket, dict):
@@ -106,7 +113,7 @@ class ProjectCollection(CollectionModel):
     """Project Collection"""
     container_name = "projects"
 
-    def count_active_projects(self):
+    def count_active_projects(self) -> int:
         """Count active projects"""
         active_projects = 0
         projects = self.read_all(self.container_name)
@@ -119,13 +126,12 @@ class ProjectCollection(CollectionModel):
 
         return active_projects
 
-    def create(self, new_project_item):
+    def create(self, new_project_item: dict) -> tuple[dict, str]:
         """
         Create new project
 
         :param new_project_item:
         :return: project and project ID
-        :rtype: tuple(dict, str)
         """
         capture_project = Project.model_validate(
             {
@@ -145,8 +151,11 @@ class TicketCollection(CollectionModel):
     """Ticket Collection"""
     container_name = "tickets"
 
-    def count_active_tickets(self):
-        """Count active tickets"""
+    def count_active_tickets(self) -> int:
+        """Count active tickets
+
+        :return: Number of active tickets
+        """
         active_tickets = 0
         tickets = self.read_all(self.container_name)
         if not tickets:
@@ -164,8 +173,11 @@ class RoutinesCollection(CollectionModel):
     """Routines/Habits Collection"""
     container_name = "habits"
 
-    def count_active_habits(self):
-        """Count active habits"""
+    def count_active_habits(self) -> int:
+        """Count active habits
+
+        :return: Number of active routines
+        """
         active_habits = 0
         habits = self.read_all(self.container_name)
         if not habits:
