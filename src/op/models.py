@@ -149,10 +149,32 @@ class ProjectCollection(CollectionModel):
     def get_all_projects(self) -> dict | None:
         """Get all projects
 
-        Return all projects
+        :return: all projects
         """
         projects = self.read_all(self.container_name)
         return projects
+
+    def get_filtered_project(self, project_filter: str) -> dict | None:
+        """Get filtered projects
+
+        :param project_filter: Project filter
+        :return: Projects, filtered by filter
+        """
+        projects = self.get_all_projects()
+        if not projects:
+            return None
+
+        if project_filter == 'all':
+            return projects
+
+        project_filter = 'not_started' if project_filter == 'new' else project_filter
+
+        return {
+            key: value
+            for key, value in projects.items()
+            if value.get("state") == project_filter
+        }
+
 
     def get_project(self, pk: str) -> dict | None:
         """Show project by ID

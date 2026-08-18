@@ -86,6 +86,31 @@ class TestParser:
         args = parser.parse_args(["project", "list"])
         assert args.command == "project"
         assert args.project_command == "list"
+        assert args.all is False
+        assert args.state is None
+
+    def test_parser_project_list_all(self):
+        """Verify parsing 'project list --all' sets all flag to True.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["project", "list", "--all"])
+        assert args.command == "project"
+        assert args.project_command == "list"
+        assert args.all is True
+
+    @pytest.mark.parametrize("state_val", ["new", "done", "archived"])
+    def test_parser_project_list_state(self, state_val: str):
+        """Verify parsing 'project list --state <choice>' captures the state filter.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["project", "list", "--state", state_val])
+        assert args.command == "project"
+        assert args.project_command == "list"
+        assert args.state == state_val
 
     def test_parser_project_show(self):
         """Verify parsing 'project show <id>' captures project, show, and id argument.

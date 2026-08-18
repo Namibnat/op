@@ -307,14 +307,22 @@ def create_project_by_id(pk: str):
     print(display)
 
 
-def list_project_items():
+def list_project_items(args):
     """List all projects"""
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
     title_line_full = create_title_line(terminal_width)
 
     project_interface = ProjectCollection()
-    all_project_dict = project_interface.get_all_projects()
+
+    # Filter: by default filter by active
+    project_filter = 'active'
+    if args.all:
+        project_filter = 'all'
+    elif args.state:
+        project_filter = args.state
+
+    all_project_dict = project_interface.get_filtered_project(project_filter)
     all_projects = []
     if all_project_dict:
         all_projects = list(all_project_dict.items())
@@ -409,18 +417,18 @@ def main():
         elif args.bucket_command == "discard":
             discard_bucket_item_by_id(args.id)
         else:
-            parser.print_help()
+            list_bucket_items()
 
     # Project related actions
     elif args.command == "project":
         if args.project_command == "create":
             create_project_by_id(args.id)
         elif args.project_command == "list":
-            list_project_items()
+            list_project_items(args)
         elif args.project_command == "show":
             show_project_by_id(args.id)
         else:
-            parser.print_help()
+            list_project_items(args)
 
     # Dashboard
     else:

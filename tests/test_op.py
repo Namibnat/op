@@ -4,6 +4,7 @@
 # License: MIT
 """
 
+import argparse
 import datetime
 import json
 from pathlib import Path
@@ -288,29 +289,60 @@ def test_list_project_items_empty(isolated_storage_dir: Path, capsys: pytest.Cap
 
     # Authored by Antigravity Agent (Gemini 3.7 Flash)
     """
-    list_project_items()
+    args = argparse.Namespace(all=False, state=None)
+    list_project_items(args)
     captured = capsys.readouterr()
     assert "0 projects" in captured.out
     assert "No projects" in captured.out
 
 
-def test_list_project_items_populated(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
-    """Verify list_project_items renders formatted project list.
+def test_list_project_items_populated_default_active(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify list_project_items defaults to showing active projects only.
 
     # Authored by Antigravity Agent (Gemini 3.7 Flash)
     """
     sample_base_data["projects"] = {
-        "p1": {"name": "First Project", "date_created": "2026-08-16", "state": "active"},
-        "p2": {"name": "Second Project", "date_created": "2026-08-17", "state": "not_started"},
+        "p1": {"name": "Active Project", "date_created": "2026-08-16", "state": "active"},
+        "p2": {"name": "New Project", "date_created": "2026-08-17", "state": "not_started"},
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
 
-    list_project_items()
+    args = argparse.Namespace(all=False, state=None)
+    list_project_items(args)
     captured = capsys.readouterr()
-    assert "2 projects" in captured.out
-    assert "First Project" in captured.out
-    assert "Second Project" in captured.out
+    assert "1 projects" in captured.out
+    assert "Active Project" in captured.out
+    assert "New Project" not in captured.out
+
+
+def test_list_project_items_all_and_state_filter(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify list_project_items respects --all and --state filters.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["projects"] = {
+        "p1": {"name": "Active Project", "date_created": "2026-08-16", "state": "active"},
+        "p2": {"name": "New Project", "date_created": "2026-08-17", "state": "not_started"},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    # Test --all
+    args_all = argparse.Namespace(all=True, state=None)
+    list_project_items(args_all)
+    captured_all = capsys.readouterr()
+    assert "2 projects" in captured_all.out
+    assert "Active Project" in captured_all.out
+    assert "New Project" in captured_all.out
+
+    # Test --state new
+    args_state = argparse.Namespace(all=False, state="new")
+    list_project_items(args_state)
+    captured_state = capsys.readouterr()
+    assert "1 projects" in captured_state.out
+    assert "New Project" in captured_state.out
+    assert "Active Project" not in captured_state.out
 
 
 def test_show_project_by_id_found(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):

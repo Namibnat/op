@@ -343,6 +343,58 @@ class TestProjectCollection:
         project_col = ProjectCollection()
         assert project_col.get_project("nonexistent-prefix") is None
 
+    def test_get_filtered_project_all(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_filtered_project returns all projects when filter is 'all'.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["projects"] = {
+            "p1": {"name": "P1", "state": "active"},
+            "p2": {"name": "P2", "state": "not_started"},
+            "p3": {"name": "P3", "state": "done"},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        res = project_col.get_filtered_project("all")
+        assert len(res) == 3
+
+    def test_get_filtered_project_by_state(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_filtered_project filters by specific state and maps 'new' to 'not_started'.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["projects"] = {
+            "p1": {"name": "Active 1", "state": "active"},
+            "p2": {"name": "New 1", "state": "not_started"},
+            "p3": {"name": "Done 1", "state": "done"},
+            "p4": {"name": "Archived 1", "state": "archived"},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        active = project_col.get_filtered_project("active")
+        assert len(active) == 1
+        assert "p1" in active
+
+        new_projs = project_col.get_filtered_project("new")
+        assert len(new_projs) == 1
+        assert "p2" in new_projs
+
+        done_projs = project_col.get_filtered_project("done")
+        assert len(done_projs) == 1
+        assert "p3" in done_projs
+
+    def test_get_filtered_project_empty(self, isolated_storage_dir: Path):
+        """Verify get_filtered_project returns None when no projects exist.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        project_col = ProjectCollection()
+        assert project_col.get_filtered_project("active") is None
+
 
 class TestTicketCollection:
     """Tests for TicketCollection model.

@@ -40,6 +40,14 @@ def build_parser() -> argparse.ArgumentParser:
     show_project_parser = project_subparsers.add_parser("show")
     show_project_parser.add_argument("id", type=str)
 
-    project_subparsers.add_parser("list")
+    list_project_parser = project_subparsers.add_parser("list")
+    list_project_parser.add_argument(
+        "--state",
+        choices=["new", "done", "archived"],
+    )
+    list_project_parser.add_argument(
+        "--all",
+        action="store_true",
+    )
 
     return parser

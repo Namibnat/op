@@ -46,7 +46,6 @@ export OP_DATA_DIR=/path/to/op-data
 mkdir -p /path/to/op-data
 ```
 
-
 ```bash
 # Daily overview dashboard
 op
@@ -56,7 +55,7 @@ op
 # -- Bucket Workflow (Capture & Triage)
 op bucket add "Start a luxury donkey spa"   # Create a bucket with a text string
 op bucket list                              # List existing buckets
-op bucket --id-prefix--                     # See one bucket's details by giving a prefix of the ID
+op bucket show --id-prefix--                # See one bucket's details by giving a prefix of the ID
 op bucket discard --id-prefix--             # Discard a bucket
 
 
@@ -64,8 +63,14 @@ op bucket discard --id-prefix--             # Discard a bucket
 
 # -- Project Workflow
 op project create --id-prefix--             # Create a project based on a bucket (deletes the bucket)
-op project list                             # Lists all projects
+op project list                             # Lists ACTIVE projects
+op project list --all                       # List all projects
+op project list --state new                 # List projects that have not yet been started
+op project list --state done                # List projects that have been completed
+op project list --state archived            # List projects that were never completed but paused
 op project show --id-prefix--               # Show a project's details
+
+
 
 ```
 
