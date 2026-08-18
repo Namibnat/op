@@ -395,6 +395,40 @@ class TestProjectCollection:
         project_col = ProjectCollection()
         assert project_col.get_filtered_project("active") is None
 
+    def test_set_project_state_success(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify set_project_state updates state in memory and persists to planner.json.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        proj_id = "990e8400-e29b-41d4-a716-446655440000"
+        sample_base_data["projects"][proj_id] = {
+            "name": "State Test Project",
+            "spec": "Spec",
+            "state": "not_started",
+            "done_when": "Done",
+            "date_created": "2026-08-18",
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        updated = project_col.set_project_state("990e8400", "active")
+        assert updated is not None
+        assert updated["state"] == "active"
+
+        # Verify disk persistence
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        assert disk_data["projects"][proj_id]["state"] == "active"
+
+    def test_set_project_state_not_found(self, isolated_storage_dir: Path):
+        """Verify set_project_state returns None when project ID is not found.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        project_col = ProjectCollection()
+        assert project_col.set_project_state("missing-id", "done") is None
+
 
 class TestTicketCollection:
     """Tests for TicketCollection model.

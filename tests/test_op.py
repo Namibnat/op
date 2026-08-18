@@ -21,6 +21,7 @@ from op.op import (
     create_project_by_id,
     list_project_items,
     show_project_by_id,
+    set_project_by_id,
 )
 from op.models import BucketCollection, ProjectCollection
 
@@ -382,3 +383,64 @@ def test_show_project_by_id_not_found(isolated_storage_dir: Path, capsys: pytest
     show_project_by_id("99999999")
     captured = capsys.readouterr()
     assert "No project found with an ID starting with 99999999" in captured.out
+
+
+def test_show_project_by_id_state_update(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify show_project_by_id with state_update=True renders 'Updated State:'.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "880e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Solar Battery Setup",
+        "spec": "Install panels and inverter",
+        "state": "done",
+        "done_when": "Grid tie functional",
+        "date_created": "2026-08-17",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    show_project_by_id("880e8400", state_update=True)
+    captured = capsys.readouterr()
+    assert "Updated State: [Done]" in captured.out
+
+
+def test_set_project_by_id_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify set_project_by_id interactively updates project state.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "880e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Solar Battery Setup",
+        "spec": "Install panels and inverter",
+        "state": "not_started",
+        "done_when": "Grid tie functional",
+        "date_created": "2026-08-17",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    # Option 2 corresponds to 'active' (ProjectState has: 1: not_started, 2: active, 3: done, 4: archived)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "2")
+
+    set_project_by_id("880e8400")
+    captured = capsys.readouterr()
+
+    assert "Updated State: [Active]" in captured.out
+
+    project_col = ProjectCollection()
+    updated = project_col.get_project("880e8400")
+    assert updated["state"] == "active"
+
+
+def test_set_project_by_id_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify set_project_by_id returns early without prompting when project doesn't exist.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    set_project_by_id("nonexistent")
+    captured = capsys.readouterr()
+    assert "No project found with an ID starting with nonexistent" in captured.out
+    assert "Choose state" not in captured.out

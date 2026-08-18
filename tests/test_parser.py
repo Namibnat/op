@@ -122,3 +122,14 @@ class TestParser:
         assert args.command == "project"
         assert args.project_command == "show"
         assert args.id == "b2c3d4e5"
+
+    def test_parser_project_set(self):
+        """Verify parsing 'project set <id>' captures project, set, and id argument.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["project", "set", "c3d4e5f6"])
+        assert args.command == "project"
+        assert args.project_command == "set"
+        assert args.id == "c3d4e5f6"

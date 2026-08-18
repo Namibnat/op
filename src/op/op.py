@@ -6,6 +6,7 @@ import shutil
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
+from op.schema import ProjectState
 
 
 def date_string() -> str:
@@ -357,10 +358,11 @@ def list_project_items(args):
     print(display)
 
 
-def show_project_by_id(pk: str):
+def show_project_by_id(pk: str, state_update: bool = False):
     """Show a single project by ID
 
     :param pk: Project ID
+    :param state_update: Was the state updated
     """
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
@@ -380,11 +382,15 @@ def show_project_by_id(pk: str):
         done_when = project.get("done_when")
         date_created = project.get("date_created")
 
+        state_output = f"State: [{state}]"
+        if state_update:
+            state_output = f"\nUpdated State: [{state}]"
+
         project_output = (f"[ID: {project_id}  Created: {date_created}]\n"
                           f"{name}\n\n"
                           f"Project spec:\n\t{spec}\n\n"
                           f"Done when:\n\t{done_when}\n\n"
-                          f"State: [{state}]"
+                          f"{state_output}"
                           )
 
     display = (
@@ -397,6 +403,48 @@ def show_project_by_id(pk: str):
         f"{item_sep}"
     )
     print(display)
+
+
+def set_project_by_id(pk: str):
+    """Set a project state
+
+    State can be set to:
+        not_started
+        active
+        done
+        archived
+
+    :param pk: Project ID
+    """
+    project_interface = ProjectCollection()
+
+    # Display it
+    show_project_by_id(pk)
+
+    if not project_interface.get_project(pk.strip()):
+        return
+
+    print("Choose state (enter the number)\n\n")
+
+    for index, possible_state in enumerate(ProjectState, start=1):
+        print(f" - {index}: {possible_state.value}")
+
+    print()
+
+    choice = input("% ")
+    choice = choice.strip()
+    if not choice.isdigit() or int(choice) not in range(1, len(ProjectState) + 1):
+        print(f"Invalid choice {choice}, try again")
+        return
+
+    choice_value = int(choice)
+
+    state = list(ProjectState)[choice_value - 1]
+    project_interface.set_project_state(pk, state)
+
+    os.system('clear')
+    # Display it after update
+    show_project_by_id(pk, state_update=True)
 
 
 def main():
@@ -427,6 +475,8 @@ def main():
             list_project_items(args)
         elif args.project_command == "show":
             show_project_by_id(args.id)
+        elif args.project_command == "set":
+            set_project_by_id(args.id)
         else:
             list_project_items(args)
 

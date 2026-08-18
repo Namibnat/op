@@ -69,8 +69,7 @@ op project list --state new                 # List projects that have not yet be
 op project list --state done                # List projects that have been completed
 op project list --state archived            # List projects that were never completed but paused
 op project show --id-prefix--               # Show a project's details
-
-
+op project set --id-prefix--                # To update a project's state [new, active, done, archived]
 
 ```
 

@@ -50,4 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
     )
 
+    set_project_parser = project_subparsers.add_parser("set")
+    set_project_parser.add_argument("id", type=str)
+
     return parser

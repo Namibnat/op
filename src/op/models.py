@@ -2,7 +2,7 @@
 import datetime
 
 from op.storage import JsonContainer
-from op.schema import Bucket, Project
+from op.schema import Bucket, Project, ProjectState
 
 
 class CollectionModel:
@@ -175,7 +175,6 @@ class ProjectCollection(CollectionModel):
             if value.get("state") == project_filter
         }
 
-
     def get_project(self, pk: str) -> dict | None:
         """Show project by ID
 
@@ -193,6 +192,21 @@ class ProjectCollection(CollectionModel):
                 return project
 
         return None
+
+    def set_project_state(self, pk: str, state: ProjectState) -> dict | None:
+        """Set the state of a project given by its ID
+
+        :param pk: Project ID
+        :param state: New state
+        :return: A single project or None
+        """
+        project = self.get_project(pk)
+        if not project:
+            return None
+
+        project['state'] = state
+        self.json_container.save()
+        return project
 
 
 class TicketCollection(CollectionModel):
