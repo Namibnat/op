@@ -29,3 +29,10 @@ dist/
 .DS_Store
 
 .config/op/config.toml
+MISSION.md
+NOTES.md
+RESOURCES.md
+assets/
+learning-records/
+lessons/
+reference/
