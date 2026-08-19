@@ -1,8 +1,8 @@
 """Data models: structure and behaviour of data"""
 import datetime
 
+from op.schema import Bucket, Project, ProjectState, ProjectResource
 from op.storage import JsonContainer
-from op.schema import Bucket, Project, ProjectState
 
 
 class CollectionModel:
@@ -227,6 +227,18 @@ class ProjectCollection(CollectionModel):
 
         return None
 
+    def _save_data_with_project(self, project: Project):
+        """Add project to store format and save data
+
+        :param project: The project to save
+        """
+        data_project = project.model_dump(
+            mode="json",
+            exclude={"pk": True, 'resources': {"__all__": {"pk": True}}}
+        )
+        self.data[self.container_name][project.pk] = data_project
+        self.save_data()
+
     def set_project_state(self, pk: str, state: ProjectState) -> Project | None:
         """Set the state of a project given by its ID
 
@@ -239,10 +251,24 @@ class ProjectCollection(CollectionModel):
             return None
 
         project.state = state
+        self._save_data_with_project(project)
+        return project
 
-        data_project = project.model_dump(mode="json", exclude={"pk"})
-        self.data[self.container_name][project.pk] = data_project
-        self.save_data()
+    def add_project_resource(self, pk: str, resource: ProjectResource) -> Project | None:
+        """Add a project resource
+
+        :param pk: Project ID
+        :param resource: New resource to be added to a project.
+        :return: Project after resource update, None if there is no valid project
+        """
+        project = self.get_project(pk)
+        if not project:
+            return None
+
+        project.resources[resource.pk] = resource
+        self._save_data_with_project(project)
+
+        project = self.get_project(pk)
         return project
 
 

@@ -6,7 +6,7 @@ import shutil
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
-from op.schema import ProjectState, Project
+from op.schema import ProjectState, Project, ProjectResource
 
 
 def date_string() -> str:
@@ -383,18 +383,35 @@ def show_project_by_id(pk: str, state_update: bool = False):
         state = project.state.title()
         done_when = project.done_when
         date_created = project.date_created
+        resources = project.resources
+
+        resources_output = ''
+        resource_output_collection = list()
+
+        if resources:
+            resources_output = '\nPROJECT RESOURCES:\n--------------------------------------\n'
+            for resource_key, resource in resources.items():
+                resource_output = (
+                    f"Type:     {resource.type}\n"
+                    f"Label:    {resource.label}\n"
+                    f"Location: {resource.location}\n"
+                )
+                resource_output_collection.append(resource_output)
+            resources_output = resources_output + '\n'.join(resource_output_collection)
 
         state_output = f"State: [{state}]"
         if state_update:
             state_output = f"\nUpdated State: [{state}]"
 
-        project_output = (f"ID: {project_id}\n"
-                          f"[Created: {date_created}]\n\n"
-                          f"{name}\n\n"
-                          f"Project spec:\n\t{spec}\n\n"
-                          f"Done when:\n\t{done_when}\n\n"
-                          f"{state_output}"
-                          )
+        project_output = (
+            f"ID: {project_id}\n"
+            f"[Created: {date_created}]\n\n"
+            f"{name}\n\n"
+            f"Project spec:\n\t{spec}\n\n"
+            f"Done when:\n\t{done_when}\n\n"
+            f"{state_output}\n"
+            f"{resources_output}"
+        )
 
     display = (
         "\n\n"
@@ -450,47 +467,53 @@ def set_project_by_id(pk: str):
     show_project_by_id(pk, state_update=True)
 
 
-# def add_project_resources(pk):
-#     """Add project resources
-#
-#     :param pk: Project ID
-#     """
-#     project_interface = ProjectCollection()
-#
-#     # Display it
-#     show_project_by_id(pk)
-#
-#     project = project_interface.get_project(pk.strip())
-#     if not project:
-#         return
-#
-#     resources = project.resources
-#
-#     while True:
-#         print("Add a new resource or hit enter to save them")
-#         resource_type = input("Resource Type: ")
-#         if not resource_type.strip():
-#             break
-#
-#         resource_label = input("Resource Label: ")
-#         resource_location = input("Recourse Location: ")
-#
-#         resources_key = str(uuid.uuid4())
-#         resources[resources_key] = {
-#             "type": resource_type,
-#             "label": resource_label,
-#             "location": resource_location
-#         }
-#
-#     if not resources:
-#         print("No resources added")
-#
-#     print("Add resources")
-#
-#
-# def handle_project_resources(args):
-#     if args.add:
-#         add_project_resources(args.add)
+def add_project_resources(pk):
+    """Add project resources
+
+    :param pk: Project ID
+    """
+    project_interface = ProjectCollection()
+
+    # Display it
+    show_project_by_id(pk)
+
+    project = project_interface.get_project(pk.strip())
+    if not project:
+        return
+
+    new_resources = 0
+    while True:
+        print("Add a new resource or hit enter to save them")
+        resource_type = input("Resource Type: ")
+        if not resource_type.strip():
+            break
+        resource_label = input("Resource Label: ")
+        resource_location = input("Resource Location: ")
+
+        new_resource = ProjectResource.model_validate(
+            {
+                "type": resource_type,
+                "label": resource_label,
+                "location": resource_location
+            }
+        )
+        project_interface.add_project_resource(
+            project.pk,
+            new_resource
+        )
+        new_resources += 1
+
+    if not new_resources:
+        print("No resources added")
+        return
+
+    os.system('clear')
+    show_project_by_id(project.pk)
+
+
+def handle_project_resources(args):
+    if args.add:
+        add_project_resources(args.add)
 
 
 def main():
@@ -523,8 +546,8 @@ def main():
             show_project_by_id(args.id)
         elif args.project_command == "set":
             set_project_by_id(args.id)
-        # elif args.project_command == "resources":
-        #     handle_project_resources(args)
+        elif args.project_command == "resources":
+            handle_project_resources(args)
         else:
             list_project_items(args)
 

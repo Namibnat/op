@@ -61,6 +61,9 @@ op bucket discard --id-prefix--             # Discard a bucket
 
 # Projects | Any action requiring more than one step
 
+# Project resources are simple text notes to function more as a reminder where project
+# resources live, not live links, etc.
+
 # -- Project Workflow
 op project create --id-prefix--             # Create a project based on a bucket (deletes the bucket)
 op project list                             # Lists ACTIVE projects
@@ -70,6 +73,7 @@ op project list --state done                # List projects that have been compl
 op project list --state archived            # List projects that were never completed but paused
 op project show --id-prefix--               # Show a project's details
 op project set --id-prefix--                # To update a project's state [new, active, done, archived]
+op project resource --all --id-prefix--     # Add a resource to a project
 
 ```
 

@@ -22,6 +22,8 @@ from op.op import (
     list_project_items,
     show_project_by_id,
     set_project_by_id,
+    add_project_resources,
+    handle_project_resources,
 )
 from op.models import BucketCollection, ProjectCollection
 
@@ -446,3 +448,139 @@ def test_set_project_by_id_success(isolated_storage_dir: Path, sample_base_data:
     updated = project_col.get_project("880e8400")
     assert updated is not None
     assert updated.state == "active"
+
+
+def test_show_project_by_id_with_resources(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify show_project_by_id displays PROJECT RESOURCES section when resources exist.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "cc0e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Project With Resources",
+        "spec": "Spec with docs",
+        "state": "active",
+        "done_when": "Everything ready",
+        "date_created": "2026-08-19",
+        "resources": {
+            "r1": {
+                "type": "doc",
+                "label": "API Docs",
+                "location": "https://api.example.com",
+            }
+        },
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    show_project_by_id("cc0e8400")
+    captured = capsys.readouterr()
+
+    assert "PROJECT RESOURCES:" in captured.out
+    assert "Type:     doc" in captured.out
+    assert "Label:    API Docs" in captured.out
+    assert "Location: https://api.example.com" in captured.out
+
+
+def test_add_project_resources_interactive_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify add_project_resources interactively prompts and saves multiple resources.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "dd0e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Resource Project",
+        "spec": "Spec",
+        "state": "active",
+        "done_when": "Done",
+        "date_created": "2026-08-19",
+        "resources": {},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    # First resource: type="repo", label="Git", location="github.com/op"
+    # Second resource: type="" (exits loop)
+    user_inputs = iter(["repo", "Git", "github.com/op", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    add_project_resources("dd0e8400")
+    captured = capsys.readouterr()
+
+    assert "Add a new resource or hit enter to save them" in captured.out
+    assert "PROJECT RESOURCES:" in captured.out
+    assert "Type:     repo" in captured.out
+    assert "Label:    Git" in captured.out
+    assert "Location: github.com/op" in captured.out
+
+    project_col = ProjectCollection()
+    project = project_col.get_project("dd0e8400")
+    assert project is not None
+    assert len(project.resources) == 1
+    res = list(project.resources.values())[0]
+    assert res.type == "repo"
+    assert res.label == "Git"
+    assert res.location == "github.com/op"
+
+
+def test_add_project_resources_interactive_empty(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify add_project_resources prints 'No resources added' when hitting Enter immediately.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "ee0e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Empty Resource Project",
+        "spec": "Spec",
+        "state": "active",
+        "done_when": "Done",
+        "date_created": "2026-08-19",
+        "resources": {},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    user_inputs = iter([""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    add_project_resources("ee0e8400")
+    captured = capsys.readouterr()
+
+    assert "No resources added" in captured.out
+
+
+def test_add_project_resources_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify add_project_resources exits cleanly when project is missing.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    add_project_resources("nonexistent")
+    captured = capsys.readouterr()
+    assert "No project found with an ID starting with nonexistent" in captured.out
+
+
+def test_handle_project_resources(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify handle_project_resources delegates to add_project_resources when --add is passed.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "ff0e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Handler Project",
+        "spec": "Spec",
+        "state": "active",
+        "done_when": "Done",
+        "date_created": "2026-08-19",
+        "resources": {},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    user_inputs = iter([""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    args = argparse.Namespace(add="ff0e8400")
+    handle_project_resources(args)
+    captured = capsys.readouterr()
+
+    assert "No resources added" in captured.out

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from op.config import BASE_STRUCTURE
-from op.schema import Bucket, Project, ProjectState
+from op.schema import Bucket, Project, ProjectState, ProjectResource
 from op.models import (
     CollectionModel,
     BucketCollection,
@@ -443,6 +443,81 @@ class TestProjectCollection:
         """
         project_col = ProjectCollection()
         assert project_col.set_project_state("missing-id", ProjectState.DONE) is None
+
+    def test_add_project_resource_success(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify add_project_resource attaches resource and persists to disk.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        proj_id = "aa0e8400-e29b-41d4-a716-446655440000"
+        sample_base_data["projects"][proj_id] = {
+            "name": "Resource Test Project",
+            "spec": "Spec",
+            "state": "active",
+            "done_when": "Done",
+            "date_created": "2026-08-19",
+            "resources": {},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        new_res = ProjectResource(type="repo", label="Source Repo", location="github.com/Namibnat/op")
+        updated = project_col.add_project_resource("aa0e8400", new_res)
+
+        assert updated is not None
+        assert isinstance(updated, Project)
+        assert len(updated.resources) == 1
+
+        # Check disk persistence
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        proj_resources = disk_data["projects"][proj_id]["resources"]
+        assert len(proj_resources) == 1
+        res_data = list(proj_resources.values())[0]
+        assert res_data["type"] == "repo"
+        assert res_data["label"] == "Source Repo"
+        assert res_data["location"] == "github.com/Namibnat/op"
+
+    def test_add_project_resource_multiple(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify add_project_resource supports appending multiple distinct resources.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        proj_id = "bb0e8400-e29b-41d4-a716-446655440000"
+        sample_base_data["projects"][proj_id] = {
+            "name": "Multi Resource Project",
+            "spec": "Spec",
+            "state": "active",
+            "done_when": "Done",
+            "date_created": "2026-08-19",
+            "resources": {},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        res1 = ProjectResource(type="doc", label="Design Doc", location="docs/design.md")
+        res2 = ProjectResource(type="link", label="Figma Mockup", location="https://figma.com/file/123")
+
+        project_col.add_project_resource("bb0e8400", res1)
+        updated = project_col.add_project_resource("bb0e8400", res2)
+
+        assert updated is not None
+        assert len(updated.resources) == 2
+
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        assert len(disk_data["projects"][proj_id]["resources"]) == 2
+
+    def test_add_project_resource_not_found(self, isolated_storage_dir: Path):
+        """Verify add_project_resource returns None when project ID prefix is not found.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        project_col = ProjectCollection()
+        res = ProjectResource(type="link", label="Link", location="http://example.com")
+        assert project_col.add_project_resource("nonexistent", res) is None
 
 
 class TestTicketCollection:

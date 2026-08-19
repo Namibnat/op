@@ -112,14 +112,16 @@ Ideas, aspirational projects, or deferred items that have no active commitment t
 
 ### 4.3 Projects
 A high-level outcome or deliverable with defined completion criteria.
-- **Stored In**: `planner.json["projects"]` (keyed by project ID)
-- **Fields**: ID, name, description/spec, `done_when` (unambiguous completion criteria), status (`active`, `paused`, `completed`, `cancelled`), target date, created/updated timestamps.
-- **Resource Pointers**: Key-value map referencing external locations:
-  - Obsidian note paths
-  - Local filesystem directories / files
-  - GitHub repositories or PRs
-  - Web URLs
-- **Tickets Link**: A project aggregates multiple related ticket IDs.
+- **Stored In**: `planner.json["projects"]` (keyed by UUID string)
+- **Fields**: `pk` (UUID), `name`, `spec` (description), `done_when` (completion criteria), `state` (`not_started`, `active`, `done`, `archived`), `date_created` (ISO date), `resources` (dictionary of `ProjectResource` models).
+- **Resource Pointers (`ProjectResource`)**: Structured metadata items with `type` (e.g., `repo`, `doc`, `link`), human-readable `label`, and external `location` (filesystem path, URL, Obsidian note).
+- **CLI Commands**:
+  - `op project create <id>`: Promote a bucket item into a project and discard the bucket item.
+  - `op project list [--all|--state [new|done|archived]]`: List projects.
+  - `op project show <id>`: Display project details and its attached resources.
+  - `op project set <id>`: Interactively transition project lifecycle state.
+  - `op project resources --add <id>`: Interactively attach one or more resources to an existing project.
+- **Tickets Link**: A project will aggregate related tickets.
 
 ### 4.4 Tickets (Actionable Work Units)
 Individual executable steps. Diverging from strict single-next-action GTD, a project may have multiple parallel actionable tickets simultaneously.

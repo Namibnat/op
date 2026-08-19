@@ -133,3 +133,14 @@ class TestParser:
         assert args.command == "project"
         assert args.project_command == "set"
         assert args.id == "c3d4e5f6"
+
+    def test_parser_project_resources_add(self):
+        """Verify parsing 'project resources --add <id>' captures project, resources, and add id.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["project", "resources", "--add", "d4e5f6a7"])
+        assert args.command == "project"
+        assert args.project_command == "resources"
+        assert args.add == "d4e5f6a7"
