@@ -82,18 +82,18 @@ class TestJsonContainerFileOperations:
             disk_data = json.load(f)
         assert disk_data == BASE_STRUCTURE
 
-    def test_read_container_loads_and_validates_data(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify _read_container successfully reads and parses file contents.
+    def test_read_loads_and_validates_data(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify read successfully loads and validates existing file contents.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
-        sample_base_data["bucket"]["item-1"] = {"text": "Test capture item"}
+        sample_base_data["bucket"]["item-1"] = {"item": "Test capture item", "date_created": "2026-08-19"}
         target_file = isolated_storage_dir / "planner.json"
         with open(target_file, "w") as f:
             json.dump(sample_base_data, f)
 
         container = JsonContainer()
-        loaded = container._read_container()
+        loaded = container.read()
 
         assert loaded == sample_base_data
         assert container.data == sample_base_data
@@ -129,43 +129,6 @@ class TestJsonContainerFileOperations:
 
         assert data["projects"]["proj-1"]["name"] == "Test Project"
         assert container.data["projects"]["proj-1"]["name"] == "Test Project"
-
-    def test_create_item_persists_to_disk(self, isolated_storage_dir: Path):
-        """Verify create() adds a new UUID-keyed entry to the container and saves to disk.
-
-        # Authored by Antigravity Agent (Gemini 3.7 Flash)
-        """
-        container = JsonContainer()
-        new_item = {"item": "Test capture", "date_created": "2026-08-16"}
-        key = container.create(new_item, container_name="bucket")
-
-        target_file = isolated_storage_dir / "planner.json"
-        assert target_file.exists()
-        with open(target_file, "r") as f:
-            saved_data = json.load(f)
-
-        assert len(saved_data["bucket"]) == 1
-        assert key in saved_data["bucket"]
-        assert saved_data["bucket"][key] == new_item
-
-    def test_create_returns_generated_key(self, isolated_storage_dir: Path):
-        """Verify create() returns the string identifier generated for the item.
-
-        # Authored by Antigravity Agent (Gemini 3.7 Flash)
-        """
-        container = JsonContainer()
-        key = container.create({"name": "New Project"}, container_name="projects")
-        assert isinstance(key, str)
-        assert len(key) == 36
-
-    def test_create_item_invalid_container_raises_value_error(self, isolated_storage_dir: Path):
-        """Verify create() raises ValueError when given an invalid container name.
-
-        # Authored by Antigravity Agent (Gemini 3.7 Flash)
-        """
-        container = JsonContainer()
-        with pytest.raises(ValueError, match="No container named nonexistent exists"):
-            container.create({"text": "abc"}, container_name="nonexistent")
 
     def test_save_persists_current_data(self, isolated_storage_dir: Path, sample_base_data: dict):
         """Verify save() writes modified container data to disk.

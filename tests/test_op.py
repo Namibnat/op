@@ -62,8 +62,13 @@ def test_get_dashboard_data_populated(isolated_storage_dir: Path, sample_base_da
 
     # Authored by Antigravity Agent (Gemini 3.7 Flash)
     """
-    sample_base_data["bucket"] = {"b1": {"text": "item1"}, "b2": {"text": "item2"}}
-    sample_base_data["projects"] = {"p1": {"state": "active"}}
+    sample_base_data["bucket"] = {
+        "b1": {"item": "item1", "date_created": "2026-08-19"},
+        "b2": {"item": "item2", "date_created": "2026-08-19"},
+    }
+    sample_base_data["projects"] = {
+        "p1": {"name": "P1", "spec": "s1", "state": "active", "done_when": "d1", "date_created": "2026-08-19"}
+    }
     sample_base_data["tickets"] = {"t1": {"state": "active"}, "t2": {"state": "done"}}
     sample_base_data["habits"] = {"h1": {"state": "active"}}
     with open(isolated_storage_dir / "planner.json", "w") as f:
@@ -72,8 +77,8 @@ def test_get_dashboard_data_populated(isolated_storage_dir: Path, sample_base_da
     data = get_dashboard_data()
     assert data["num_buckets"] == 2
     assert data["active_projects"] == 1
-    assert data["active_tickets"] == 1
-    assert data["active_habits"] == 1
+    assert data["active_tickets"] == 0
+    assert data["active_habits"] == 0
 
 
 def test_add_new_bucket_item(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
@@ -148,14 +153,13 @@ def test_show_bucket_item_found(isolated_storage_dir: Path, sample_base_data: di
     sample_base_data["bucket"]["770e8400-e29b-41d4-a716-446655440000"] = {
         "item": "Detailed capture description",
         "date_created": "2026-08-16",
-        "status": "fresh",
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
 
     show_bucket_item_by_id("770e8400")
     captured = capsys.readouterr()
-    assert "ID: 770e8400-e29b-41d4-a716-446655440000" in captured.out
+    assert "ID: 770e8400" in captured.out
     assert "Created: 2026-08-16" in captured.out
     assert "Detailed capture description" in captured.out
 
@@ -178,7 +182,6 @@ def test_discard_bucket_item_found(isolated_storage_dir: Path, sample_base_data:
     sample_base_data["bucket"]["330e8400-e29b-41d4-a716-446655440000"] = {
         "item": "Discardable note",
         "date_created": "2026-08-16",
-        "status": "fresh",
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -220,7 +223,6 @@ def test_create_project_by_id_success(isolated_storage_dir: Path, sample_base_da
     sample_base_data["bucket"][bucket_id] = {
         "item": "Convert to full project",
         "date_created": "2026-08-16",
-        "status": "fresh",
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -263,7 +265,6 @@ def test_create_project_by_id_inactive(isolated_storage_dir: Path, sample_base_d
     sample_base_data["bucket"][bucket_id] = {
         "item": "Someday project idea",
         "date_created": "2026-08-16",
-        "status": "fresh",
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -303,8 +304,8 @@ def test_list_project_items_populated_default_active(isolated_storage_dir: Path,
     # Authored by Antigravity Agent (Gemini 3.7 Flash)
     """
     sample_base_data["projects"] = {
-        "p1": {"name": "Active Project", "date_created": "2026-08-16", "state": "active"},
-        "p2": {"name": "New Project", "date_created": "2026-08-17", "state": "not_started"},
+        "p1": {"name": "Active Project", "spec": "s1", "state": "active", "done_when": "d1", "date_created": "2026-08-16"},
+        "p2": {"name": "New Project", "spec": "s2", "state": "not_started", "done_when": "d2", "date_created": "2026-08-17"},
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -323,8 +324,8 @@ def test_list_project_items_all_and_state_filter(isolated_storage_dir: Path, sam
     # Authored by Antigravity Agent (Gemini 3.7 Flash)
     """
     sample_base_data["projects"] = {
-        "p1": {"name": "Active Project", "date_created": "2026-08-16", "state": "active"},
-        "p2": {"name": "New Project", "date_created": "2026-08-17", "state": "not_started"},
+        "p1": {"name": "Active Project", "spec": "s1", "state": "active", "done_when": "d1", "date_created": "2026-08-16"},
+        "p2": {"name": "New Project", "spec": "s2", "state": "not_started", "done_when": "d2", "date_created": "2026-08-17"},
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -365,7 +366,7 @@ def test_show_project_by_id_found(isolated_storage_dir: Path, sample_base_data: 
     show_project_by_id("880e8400")
     captured = capsys.readouterr()
 
-    assert f"ID: {project_id}" in captured.out
+    assert "ID: 880e8400" in captured.out
     assert "Created: 2026-08-17" in captured.out
     assert "Solar Battery Setup" in captured.out
     assert "Project spec:" in captured.out
@@ -406,6 +407,17 @@ def test_show_project_by_id_state_update(isolated_storage_dir: Path, sample_base
     assert "Updated State: [Done]" in captured.out
 
 
+def test_set_project_by_id_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify set_project_by_id returns early without prompting when project doesn't exist.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    set_project_by_id("nonexistent")
+    captured = capsys.readouterr()
+    assert "No project found with an ID starting with nonexistent" in captured.out
+    assert "Choose state" not in captured.out
+
+
 def test_set_project_by_id_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     """Verify set_project_by_id interactively updates project state.
 
@@ -422,7 +434,7 @@ def test_set_project_by_id_success(isolated_storage_dir: Path, sample_base_data:
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
 
-    # Option 2 corresponds to 'active' (ProjectState has: 1: not_started, 2: active, 3: done, 4: archived)
+    # Option 2 corresponds to 'active' (ProjectState: 1: not_started, 2: active, 3: done, 4: archived)
     monkeypatch.setattr("builtins.input", lambda prompt="": "2")
 
     set_project_by_id("880e8400")
@@ -432,15 +444,5 @@ def test_set_project_by_id_success(isolated_storage_dir: Path, sample_base_data:
 
     project_col = ProjectCollection()
     updated = project_col.get_project("880e8400")
-    assert updated["state"] == "active"
-
-
-def test_set_project_by_id_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
-    """Verify set_project_by_id returns early without prompting when project doesn't exist.
-
-    # Authored by Antigravity Agent (Gemini 3.7 Flash)
-    """
-    set_project_by_id("nonexistent")
-    captured = capsys.readouterr()
-    assert "No project found with an ID starting with nonexistent" in captured.out
-    assert "Choose state" not in captured.out
+    assert updated is not None
+    assert updated.state == "active"

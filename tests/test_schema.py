@@ -35,9 +35,12 @@ class TestBucketSchema:
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
-        b = Bucket(item="Idea", date_created=datetime.date(2026, 8, 17))
+        b = Bucket(pk="custom-id", item="Idea", date_created=datetime.date(2026, 8, 17))
         data = b.model_dump(mode="json")
-        assert data == {"item": "Idea", "date_created": "2026-08-17"}
+        assert data == {"pk": "custom-id", "item": "Idea", "date_created": "2026-08-17"}
+
+        data_no_pk = b.model_dump(mode="json", exclude={"pk"})
+        assert data_no_pk == {"item": "Idea", "date_created": "2026-08-17"}
 
 
 class TestProjectSchema:

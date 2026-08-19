@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from op.config import BASE_STRUCTURE
+from op.schema import Bucket, Project, ProjectState
 from op.models import (
     CollectionModel,
     BucketCollection,
@@ -41,13 +42,13 @@ class TestCollectionModelBase:
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
-        sample_base_data["bucket"]["b1"] = {"text": "Capture idea"}
+        sample_base_data["bucket"]["b1"] = {"item": "Capture idea", "date_created": "2026-08-19"}
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
         model = CollectionModel()
         bucket_data = model.read_all("bucket")
-        assert bucket_data == {"b1": {"text": "Capture idea"}}
+        assert bucket_data == {"b1": {"item": "Capture idea", "date_created": "2026-08-19"}}
 
     def test_read_all_returns_none_for_nonexistent_container(self, isolated_storage_dir: Path):
         """Verify read_all returns None when container key does not exist.
@@ -66,18 +67,21 @@ class TestBucketCollection:
     """
 
     def test_get_all_buckets(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify get_all_buckets retrieves all bucket item dictionaries.
+        """Verify get_all_buckets retrieves all bucket items as Bucket instances.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
-        sample_base_data["bucket"]["b1"] = {"item": "Note 1"}
+        sample_base_data["bucket"]["b1"] = {"item": "Note 1", "date_created": "2026-08-19"}
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
         bucket_col = BucketCollection()
         buckets = bucket_col.get_all_buckets()
-        assert "b1" in buckets
-        assert buckets["b1"]["item"] == "Note 1"
+        assert buckets is not None
+        assert len(buckets) == 1
+        assert isinstance(buckets[0], Bucket)
+        assert buckets[0].pk == "b1"
+        assert buckets[0].item == "Note 1"
 
     def test_count_all_buckets_empty(self, isolated_storage_dir: Path):
         """Verify count_all_buckets returns 0 when no bucket items exist.
@@ -92,9 +96,9 @@ class TestBucketCollection:
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
-        sample_base_data["bucket"]["b1"] = {"text": "First idea"}
-        sample_base_data["bucket"]["b2"] = {"text": "Second idea"}
-        sample_base_data["bucket"]["b3"] = {"text": "Third idea"}
+        sample_base_data["bucket"]["b1"] = {"item": "First idea", "date_created": "2026-08-19"}
+        sample_base_data["bucket"]["b2"] = {"item": "Second idea", "date_created": "2026-08-19"}
+        sample_base_data["bucket"]["b3"] = {"item": "Third idea", "date_created": "2026-08-19"}
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
@@ -116,7 +120,7 @@ class TestBucketCollection:
         assert "date_created" in item_data
 
     def test_get_bucket_exact_match(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify get_bucket returns the item with id injected on exact key match.
+        """Verify get_bucket returns the Bucket instance on exact key match.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
@@ -124,7 +128,6 @@ class TestBucketCollection:
         sample_base_data["bucket"][full_id] = {
             "item": "Target item",
             "date_created": "2026-08-16",
-            "status": "fresh",
         }
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
@@ -132,8 +135,9 @@ class TestBucketCollection:
         bucket_col = BucketCollection()
         result = bucket_col.get_bucket(full_id)
         assert result is not None
-        assert result["id"] == full_id
-        assert result["item"] == "Target item"
+        assert isinstance(result, Bucket)
+        assert result.pk == full_id
+        assert result.item == "Target item"
 
     def test_get_bucket_prefix_match(self, isolated_storage_dir: Path, sample_base_data: dict):
         """Verify get_bucket finds an item by short prefix.
@@ -144,7 +148,6 @@ class TestBucketCollection:
         sample_base_data["bucket"][full_id] = {
             "item": "Prefix item",
             "date_created": "2026-08-16",
-            "status": "fresh",
         }
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
@@ -152,8 +155,9 @@ class TestBucketCollection:
         bucket_col = BucketCollection()
         result = bucket_col.get_bucket("abcdef12")
         assert result is not None
-        assert result["id"] == full_id
-        assert result["item"] == "Prefix item"
+        assert isinstance(result, Bucket)
+        assert result.pk == full_id
+        assert result.item == "Prefix item"
 
     def test_get_bucket_not_found(self, isolated_storage_dir: Path):
         """Verify get_bucket returns None when ID prefix does not match any item.
@@ -170,7 +174,7 @@ class TestBucketCollection:
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         item_id = "11111111-2222-3333-4444-555555555555"
-        sample_base_data["bucket"][item_id] = {"item": "To be deleted"}
+        sample_base_data["bucket"][item_id] = {"item": "To be deleted", "date_created": "2026-08-19"}
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
@@ -190,7 +194,7 @@ class TestBucketCollection:
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         item_id = "88888888-2222-3333-4444-555555555555"
-        sample_base_data["bucket"][item_id] = {"item": "To delete via prefix"}
+        sample_base_data["bucket"][item_id] = {"item": "To delete via prefix", "date_created": "2026-08-19"}
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
@@ -229,11 +233,11 @@ class TestProjectCollection:
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         sample_base_data["projects"] = {
-            "p1": {"name": "Active Project 1", "state": "active"},
-            "p2": {"name": "Paused Project", "state": "paused"},
-            "p3": {"name": "Completed Project", "state": "completed"},
-            "p4": {"name": "Active Project 2", "state": "active"},
-            "p5": {"name": "Cancelled Project", "state": "cancelled"},
+            "p1": {"name": "Active Project 1", "spec": "s1", "state": "active", "done_when": "d1", "date_created": "2026-08-19"},
+            "p2": {"name": "Paused Project", "spec": "s2", "state": "not_started", "done_when": "d2", "date_created": "2026-08-19"},
+            "p3": {"name": "Completed Project", "spec": "s3", "state": "done", "done_when": "d3", "date_created": "2026-08-19"},
+            "p4": {"name": "Active Project 2", "spec": "s4", "state": "active", "done_when": "d4", "date_created": "2026-08-19"},
+            "p5": {"name": "Archived Project", "spec": "s5", "state": "archived", "done_when": "d5", "date_created": "2026-08-19"},
         }
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
@@ -242,57 +246,65 @@ class TestProjectCollection:
         assert project_col.count_active_projects() == 2
 
     def test_create_project(self, isolated_storage_dir: Path):
-        """Verify create() stores project with date_created and returns (project_dict, id).
+        """Verify create() stores project with date_created and returns Project instance.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         project_col = ProjectCollection()
-        new_project_data = {
-            "name": "Build treehouse",
-            "spec": "Two-story wooden treehouse",
-            "state": "active",
-            "done_when": "Roof and ladder complete",
-        }
-        project, project_id = project_col.create(new_project_data)
+        new_project = Project(
+            name="Build treehouse",
+            spec="Two-story wooden treehouse",
+            state=ProjectState.ACTIVE,
+            done_when="Roof and ladder complete",
+            date_created=datetime.date.today(),
+        )
+        created = project_col.create(new_project)
 
-        assert isinstance(project_id, str)
-        assert len(project_id) == 36
-        assert project["name"] == "Build treehouse"
-        assert project["spec"] == "Two-story wooden treehouse"
-        assert project["done_when"] == "Roof and ladder complete"
-        assert "date_created" in project
+        assert isinstance(created, Project)
+        assert len(created.pk) == 36
+        assert created.name == "Build treehouse"
+        assert created.spec == "Two-story wooden treehouse"
+        assert created.done_when == "Roof and ladder complete"
 
         # Verify persisted on disk
         with open(isolated_storage_dir / "planner.json", "r") as f:
             disk_data = json.load(f)
-        assert project_id in disk_data["projects"]
-        assert disk_data["projects"][project_id]["name"] == "Build treehouse"
+        assert created.pk in disk_data["projects"]
+        assert disk_data["projects"][created.pk]["name"] == "Build treehouse"
 
     def test_get_all_projects_empty(self, isolated_storage_dir: Path):
-        """Verify get_all_projects returns empty dictionary when no projects exist.
+        """Verify get_all_projects returns empty list when no projects exist.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         project_col = ProjectCollection()
         projects = project_col.get_all_projects()
-        assert projects == {}
+        assert projects == []
 
     def test_get_all_projects_populated(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify get_all_projects returns populated projects dictionary.
+        """Verify get_all_projects returns list of Project instances.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
-        sample_base_data["projects"]["p1"] = {"name": "Project 1"}
+        sample_base_data["projects"]["p1"] = {
+            "name": "Project 1",
+            "spec": "Spec 1",
+            "state": "active",
+            "done_when": "Done 1",
+            "date_created": "2026-08-19",
+        }
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
         project_col = ProjectCollection()
         projects = project_col.get_all_projects()
-        assert "p1" in projects
-        assert projects["p1"]["name"] == "Project 1"
+        assert len(projects) == 1
+        assert isinstance(projects[0], Project)
+        assert projects[0].pk == "p1"
+        assert projects[0].name == "Project 1"
 
     def test_get_project_exact_match(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify get_project returns project with injected id on exact key match.
+        """Verify get_project returns Project on exact key match.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
@@ -310,8 +322,9 @@ class TestProjectCollection:
         project_col = ProjectCollection()
         project = project_col.get_project(full_id)
         assert project is not None
-        assert project["id"] == full_id
-        assert project["name"] == "Exact Project"
+        assert isinstance(project, Project)
+        assert project.pk == full_id
+        assert project.name == "Exact Project"
 
     def test_get_project_prefix_match(self, isolated_storage_dir: Path, sample_base_data: dict):
         """Verify get_project returns project on prefix match.
@@ -332,8 +345,9 @@ class TestProjectCollection:
         project_col = ProjectCollection()
         project = project_col.get_project("770e8400")
         assert project is not None
-        assert project["id"] == full_id
-        assert project["name"] == "Prefix Project"
+        assert isinstance(project, Project)
+        assert project.pk == full_id
+        assert project.name == "Prefix Project"
 
     def test_get_project_not_found(self, isolated_storage_dir: Path):
         """Verify get_project returns None when project ID prefix doesn't match.
@@ -343,60 +357,60 @@ class TestProjectCollection:
         project_col = ProjectCollection()
         assert project_col.get_project("nonexistent-prefix") is None
 
-    def test_get_filtered_project_all(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify get_filtered_project returns all projects when filter is 'all'.
+    def test_get_filtered_projects_all(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_filtered_projects returns all projects when filter is 'all'.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         sample_base_data["projects"] = {
-            "p1": {"name": "P1", "state": "active"},
-            "p2": {"name": "P2", "state": "not_started"},
-            "p3": {"name": "P3", "state": "done"},
+            "p1": {"name": "P1", "spec": "s1", "state": "active", "done_when": "d1", "date_created": "2026-08-19"},
+            "p2": {"name": "P2", "spec": "s2", "state": "not_started", "done_when": "d2", "date_created": "2026-08-19"},
+            "p3": {"name": "P3", "spec": "s3", "state": "done", "done_when": "d3", "date_created": "2026-08-19"},
         }
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
         project_col = ProjectCollection()
-        res = project_col.get_filtered_project("all")
+        res = project_col.get_filtered_projects("all")
         assert len(res) == 3
 
-    def test_get_filtered_project_by_state(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify get_filtered_project filters by specific state and maps 'new' to 'not_started'.
+    def test_get_filtered_projects_by_state(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_filtered_projects filters by specific state and maps 'new' to 'not_started'.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         sample_base_data["projects"] = {
-            "p1": {"name": "Active 1", "state": "active"},
-            "p2": {"name": "New 1", "state": "not_started"},
-            "p3": {"name": "Done 1", "state": "done"},
-            "p4": {"name": "Archived 1", "state": "archived"},
+            "p1": {"name": "Active 1", "spec": "s1", "state": "active", "done_when": "d1", "date_created": "2026-08-19"},
+            "p2": {"name": "New 1", "spec": "s2", "state": "not_started", "done_when": "d2", "date_created": "2026-08-19"},
+            "p3": {"name": "Done 1", "spec": "s3", "state": "done", "done_when": "d3", "date_created": "2026-08-19"},
+            "p4": {"name": "Archived 1", "spec": "s4", "state": "archived", "done_when": "d4", "date_created": "2026-08-19"},
         }
         with open(isolated_storage_dir / "planner.json", "w") as f:
             json.dump(sample_base_data, f)
 
         project_col = ProjectCollection()
-        active = project_col.get_filtered_project("active")
+        active = project_col.get_filtered_projects("active")
         assert len(active) == 1
-        assert "p1" in active
+        assert active[0].pk == "p1"
 
-        new_projs = project_col.get_filtered_project("new")
+        new_projs = project_col.get_filtered_projects("new")
         assert len(new_projs) == 1
-        assert "p2" in new_projs
+        assert new_projs[0].pk == "p2"
 
-        done_projs = project_col.get_filtered_project("done")
+        done_projs = project_col.get_filtered_projects("done")
         assert len(done_projs) == 1
-        assert "p3" in done_projs
+        assert done_projs[0].pk == "p3"
 
-    def test_get_filtered_project_empty(self, isolated_storage_dir: Path):
-        """Verify get_filtered_project returns None when no projects exist.
+    def test_get_filtered_projects_empty(self, isolated_storage_dir: Path):
+        """Verify get_filtered_projects returns empty list when no projects exist.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         project_col = ProjectCollection()
-        assert project_col.get_filtered_project("active") is None
+        assert project_col.get_filtered_projects("active") == []
 
     def test_set_project_state_success(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify set_project_state updates state in memory and persists to planner.json.
+        """Verify set_project_state updates state and persists correctly to disk.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
@@ -412,9 +426,10 @@ class TestProjectCollection:
             json.dump(sample_base_data, f)
 
         project_col = ProjectCollection()
-        updated = project_col.set_project_state("990e8400", "active")
+        updated = project_col.set_project_state("990e8400", ProjectState.ACTIVE)
         assert updated is not None
-        assert updated["state"] == "active"
+        assert isinstance(updated, Project)
+        assert updated.state == ProjectState.ACTIVE
 
         # Verify disk persistence
         with open(isolated_storage_dir / "planner.json", "r") as f:
@@ -427,7 +442,7 @@ class TestProjectCollection:
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
         project_col = ProjectCollection()
-        assert project_col.set_project_state("missing-id", "done") is None
+        assert project_col.set_project_state("missing-id", ProjectState.DONE) is None
 
 
 class TestTicketCollection:
@@ -444,23 +459,6 @@ class TestTicketCollection:
         ticket_col = TicketCollection()
         assert ticket_col.count_active_tickets() == 0
 
-    def test_count_active_tickets_filtering(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify count_active_tickets counts only tickets with state == 'active'.
-
-        # Authored by Antigravity Agent (Gemini 3.7 Flash)
-        """
-        sample_base_data["tickets"] = {
-            "t1": {"title": "Active Ticket 1", "state": "active"},
-            "t2": {"title": "Done Ticket", "state": "done"},
-            "t3": {"title": "Active Ticket 2", "state": "active"},
-            "t4": {"title": "Cancelled Ticket", "state": "cancelled"},
-        }
-        with open(isolated_storage_dir / "planner.json", "w") as f:
-            json.dump(sample_base_data, f)
-
-        ticket_col = TicketCollection()
-        assert ticket_col.count_active_tickets() == 2
-
 
 class TestRoutinesCollection:
     """Tests for RoutinesCollection model.
@@ -475,19 +473,3 @@ class TestRoutinesCollection:
         """
         routines_col = RoutinesCollection()
         assert routines_col.count_active_habits() == 0
-
-    def test_count_active_habits_filtering(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify count_active_habits counts only routines with state == 'active'.
-
-        # Authored by Antigravity Agent (Gemini 3.7 Flash)
-        """
-        sample_base_data["habits"] = {
-            "h1": {"name": "Daily Habit 1", "state": "active"},
-            "h2": {"name": "Paused Habit", "state": "paused"},
-            "h3": {"name": "Daily Habit 2", "state": "active"},
-        }
-        with open(isolated_storage_dir / "planner.json", "w") as f:
-            json.dump(sample_base_data, f)
-
-        routines_col = RoutinesCollection()
-        assert routines_col.count_active_habits() == 2

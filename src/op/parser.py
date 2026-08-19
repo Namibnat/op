@@ -53,4 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     set_project_parser = project_subparsers.add_parser("set")
     set_project_parser.add_argument("id", type=str)
 
+    # resource_project_parser = project_subparsers.add_parser("resources")
+    # resource_project_parser.add_argument("--add", type=str)
+
     return parser

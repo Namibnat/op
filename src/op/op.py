@@ -6,7 +6,7 @@ import shutil
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
-from op.schema import ProjectState
+from op.schema import ProjectState, Project
 
 
 def date_string() -> str:
@@ -139,34 +139,34 @@ def list_bucket_items():
     title_line_full = create_title_line(terminal_width)
 
     bucket_interface = BucketCollection()
-    all_buckets_dict = bucket_interface.get_all_buckets()
-    all_buckets = {}
-    if all_buckets_dict:
-        all_buckets = list(all_buckets_dict.items())
-
+    all_buckets = bucket_interface.get_all_buckets()
+    if all_buckets:
         # Show newest items first
-        all_buckets.sort(key=lambda x: x[1].get('date_created', ''), reverse=True)
+        all_buckets.sort(key=lambda x: x.date_created, reverse=True)
 
     # The first part is 22 characters, and add some space at the end of the line
     reasonable_item_length = max(10, terminal_width - 40)
 
     bucket_items_string = "\tNo items in bucket"
+    num_buckets = 0
 
     if all_buckets:
         print_lines = list()
-        for primary_key, bucket in all_buckets:
-            created_date = bucket.get('date_created')
-            item = bucket.get('item')
-            print_line = f"{primary_key[:8]}  {created_date}  {item[:reasonable_item_length]}"
+        for bucket in all_buckets:
+            created_date = bucket.date_created
+            item = bucket.item
+            primary_key = bucket.pk[:8]
+            print_line = f"{primary_key}  {created_date}  {item[:reasonable_item_length]}"
             print_lines.append(print_line)
 
         bucket_items_string = "\n\t".join(print_lines)
+        num_buckets = len(all_buckets)
 
     display = (
         "\n\n"
         f"{title_line_full}"
         "\n\n\n"
-        f" BUCKET - {len(all_buckets)} items"
+        f" BUCKET - {num_buckets} items"
         f"{item_sep}"
         f"\t{bucket_items_string}"
         f"{item_sep}"
@@ -188,10 +188,10 @@ def show_bucket_item_by_id(pk: str):
 
     bucket_output = f"\nNo bucket found with an ID starting with {pk.strip()}"
     if bucket:
-        bucket_id = bucket.get('id')
-        created_date = bucket.get('date_created')
-        item = bucket.get('item')
-        bucket_output = f"[ID: {bucket_id}]\n\t[Created: {created_date}]\n\n{item}"
+        bucket_id = bucket.pk
+        created_date = bucket.date_created
+        item = bucket.item
+        bucket_output = f"ID: {bucket_id[:8]}\n[Created: {created_date}]\n\n{item}"
 
     display = (
         "\n\n"
@@ -199,7 +199,7 @@ def show_bucket_item_by_id(pk: str):
         "\n\n\n"
         f" BUCKET"
         f"{item_sep}"
-        f"\t{bucket_output}"
+        f"{bucket_output}"
         f"{item_sep}"
     )
     print(display)
@@ -236,7 +236,7 @@ def discard_bucket_item_by_id(pk: str):
 def create_project_by_id(pk: str):
     """Create a project by a bucket ID
 
-    Take a bucket items and turn it into a project.  Discard the bucket on success.
+    Take a bucket item and turn it into a project.  Discard the bucket on success.
 
     Once again, there is a bit of philosophy here.  Buckets (ideas) are cheap, and projects
     will be editable, so there isn't going to be a long "are you happy" loop.  Make the project
@@ -275,15 +275,18 @@ def create_project_by_id(pk: str):
     if raw_state.lower().strip().startswith('y'):
         project_state = 'active'
 
-    new_project_item = {
-        'name': project_name,
-        'spec': project_spec,
-        'state': project_state,
-        'done_when': project_done_when
-    }
+    new_project_item = Project.model_validate(
+        {
+            'name': project_name,
+            'spec': project_spec,
+            'state': project_state,
+            'done_when': project_done_when,
+            'date_created': datetime.date.today()
+        }
+    )
 
     project_interface = ProjectCollection()
-    new_project, primary_key = project_interface.create(new_project_item)
+    new_project = project_interface.create(new_project_item)
 
     os.system('clear')
     show_bucket_item_by_id(pk)
@@ -291,16 +294,17 @@ def create_project_by_id(pk: str):
     bucket_interface = BucketCollection()
     bucket_interface.discard_bucket(pk.strip())
 
-    project_state = new_project.get('state')
+    project_state = new_project.state
+    primary_key = new_project.pk[:8]
 
     display = (
         " PROJECT"
         "\n"
-        f"Created project [{primary_key[:8]} - {project_state.title()}]\n"
-        f"\tName: {new_project['name']}\n"
-        f"\tProject Spec: {new_project['spec']}\n"
-        f"\tDone When: {new_project['done_when']}\n"
-        f"\tCreated: {new_project['date_created']}\n"
+        f"Created project [{primary_key} - {project_state.title()}]\n"
+        f"\tName: {new_project.name}\n"
+        f"\tProject Spec: {new_project.spec}\n"
+        f"\tDone When: {new_project.done_when}\n"
+        f"\tCreated: {new_project.date_created}\n"
         f"{item_sep}"
         f"Bucket {pk} deleted."
     )
@@ -323,34 +327,34 @@ def list_project_items(args):
     elif args.state:
         project_filter = args.state
 
-    all_project_dict = project_interface.get_filtered_project(project_filter)
-    all_projects = []
-    if all_project_dict:
-        all_projects = list(all_project_dict.items())
-
+    all_projects = project_interface.get_filtered_projects(project_filter)
+    if all_projects:
         # Show newest items first
-        all_projects.sort(key=lambda x: x[1].get('date_created', ''), reverse=True)
+        all_projects.sort(key=lambda x: x.date_created, reverse=True)
 
     # The first part is 22 characters, and add some space at the end of the line
     reasonable_item_length = max(10, terminal_width - 40)
 
     bucket_items_string = "\tNo projects"
+    len_all_projects = 0
 
     if all_projects:
         print_lines = list()
-        for primary_key, project in all_projects:
-            created_date = project.get('date_created')
-            name = project.get('name')
-            print_line = f"{primary_key[:8]}  {created_date}  {name[:reasonable_item_length]}"
+        for project in all_projects:
+            created_date = project.date_created
+            name = project.name
+            primary_key = project.pk[:8]
+            print_line = f"{primary_key}  {created_date}  {name[:reasonable_item_length]}"
             print_lines.append(print_line)
 
         bucket_items_string = "\n\t".join(print_lines)
+        len_all_projects = len(all_projects)
 
     display = (
         "\n\n"
         f"{title_line_full}"
         "\n\n\n"
-        f" PROJECTS - {len(all_projects)} projects"
+        f" PROJECTS - {len_all_projects} projects"
         f"{item_sep}"
         f"\t{bucket_items_string}"
         f"{item_sep}"
@@ -373,20 +377,19 @@ def show_project_by_id(pk: str, state_update: bool = False):
 
     project_output = f"\nNo project found with an ID starting with {pk.strip()}"
     if project:
-        project_id = project.get("id")
-        name = project.get("name")
-        spec = project.get("spec")
-        state = project.get("state")
-        if isinstance(state, str):
-            state = state.title()
-        done_when = project.get("done_when")
-        date_created = project.get("date_created")
+        project_id = project.pk[:8]
+        name = project.name
+        spec = project.spec
+        state = project.state.title()
+        done_when = project.done_when
+        date_created = project.date_created
 
         state_output = f"State: [{state}]"
         if state_update:
             state_output = f"\nUpdated State: [{state}]"
 
-        project_output = (f"[ID: {project_id}  Created: {date_created}]\n"
+        project_output = (f"ID: {project_id}\n"
+                          f"[Created: {date_created}]\n\n"
                           f"{name}\n\n"
                           f"Project spec:\n\t{spec}\n\n"
                           f"Done when:\n\t{done_when}\n\n"
@@ -447,6 +450,49 @@ def set_project_by_id(pk: str):
     show_project_by_id(pk, state_update=True)
 
 
+# def add_project_resources(pk):
+#     """Add project resources
+#
+#     :param pk: Project ID
+#     """
+#     project_interface = ProjectCollection()
+#
+#     # Display it
+#     show_project_by_id(pk)
+#
+#     project = project_interface.get_project(pk.strip())
+#     if not project:
+#         return
+#
+#     resources = project.resources
+#
+#     while True:
+#         print("Add a new resource or hit enter to save them")
+#         resource_type = input("Resource Type: ")
+#         if not resource_type.strip():
+#             break
+#
+#         resource_label = input("Resource Label: ")
+#         resource_location = input("Recourse Location: ")
+#
+#         resources_key = str(uuid.uuid4())
+#         resources[resources_key] = {
+#             "type": resource_type,
+#             "label": resource_label,
+#             "location": resource_location
+#         }
+#
+#     if not resources:
+#         print("No resources added")
+#
+#     print("Add resources")
+#
+#
+# def handle_project_resources(args):
+#     if args.add:
+#         add_project_resources(args.add)
+
+
 def main():
     """Run op"""
     parser = build_parser()
@@ -477,6 +523,8 @@ def main():
             show_project_by_id(args.id)
         elif args.project_command == "set":
             set_project_by_id(args.id)
+        # elif args.project_command == "resources":
+        #     handle_project_resources(args)
         else:
             list_project_items(args)
 
