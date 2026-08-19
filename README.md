@@ -74,6 +74,7 @@ op project list --state archived            # List projects that were never comp
 op project show --id-prefix--               # Show a project's details
 op project set --id-prefix--                # To update a project's state [new, active, done, archived]
 op project resource --all --id-prefix--     # Add a resource to a project
+op project resource --remove --id-prefix--  # Delete a resource from a project
 
 ```
 

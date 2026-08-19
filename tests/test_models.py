@@ -519,6 +519,96 @@ class TestProjectCollection:
         res = ProjectResource(type="link", label="Link", location="http://example.com")
         assert project_col.add_project_resource("nonexistent", res) is None
 
+    def test_delete_project_resource_exact_id(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify delete_project_resource removes resource on exact match and persists to disk.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        proj_id = "12345678-aaaa-bbbb-cccc-dddddddddddd"
+        res_id = "87654321-1111-2222-3333-444444444444"
+        sample_base_data["projects"][proj_id] = {
+            "name": "Delete Test Project",
+            "spec": "Spec",
+            "state": "active",
+            "done_when": "Done",
+            "date_created": "2026-08-19",
+            "resources": {
+                res_id: {
+                    "type": "doc",
+                    "label": "Old Guide",
+                    "location": "docs/old.md",
+                }
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        success = project_col.delete_project_resource(proj_id, res_id)
+        assert success is True
+
+        project = project_col.get_project(proj_id)
+        assert project is not None
+        assert len(project.resources) == 0
+
+        # Check disk persistence
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        assert len(disk_data["projects"][proj_id]["resources"]) == 0
+
+    def test_delete_project_resource_prefix_id(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify delete_project_resource removes resource when passed a short prefix ID.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        proj_id = "23456789-aaaa-bbbb-cccc-dddddddddddd"
+        res_id = "98765432-1111-2222-3333-444444444444"
+        sample_base_data["projects"][proj_id] = {
+            "name": "Delete Prefix Project",
+            "spec": "Spec",
+            "state": "active",
+            "done_when": "Done",
+            "date_created": "2026-08-19",
+            "resources": {
+                res_id: {
+                    "type": "link",
+                    "label": "Old Link",
+                    "location": "https://example.com/old",
+                }
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        success = project_col.delete_project_resource("23456789", "98765432")
+        assert success is True
+
+        project = project_col.get_project("23456789")
+        assert project is not None
+        assert len(project.resources) == 0
+
+    def test_delete_project_resource_not_found(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify delete_project_resource returns False when resource ID is missing.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        proj_id = "34567890-aaaa-bbbb-cccc-dddddddddddd"
+        sample_base_data["projects"][proj_id] = {
+            "name": "No Resource Project",
+            "spec": "Spec",
+            "state": "active",
+            "done_when": "Done",
+            "date_created": "2026-08-19",
+            "resources": {},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        project_col = ProjectCollection()
+        assert project_col.delete_project_resource(proj_id, "nonexistent") is False
+        assert project_col.delete_project_resource("nonexistent-proj", "nonexistent") is False
+
 
 class TestTicketCollection:
     """Tests for TicketCollection model.

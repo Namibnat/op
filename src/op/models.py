@@ -271,6 +271,31 @@ class ProjectCollection(CollectionModel):
         project = self.get_project(pk)
         return project
 
+    def delete_project_resource(self, project_pk: str, resource_pk: str) -> bool:
+        """Remove a resource item
+
+        :param project_pk: Project ID
+        :param resource_pk: Partial resource ID
+        :return: Delete success
+        """
+        project = self.get_project(project_pk)
+        if not project:
+            return False
+
+        remove_key = None
+        resources = project.resources
+        for key, value in resources.items():
+            if key.startswith(resource_pk):
+                remove_key = key
+                break
+
+        if remove_key:
+            del resources[remove_key]
+            self._save_data_with_project(project)
+            return True
+
+        return False
+
 
 class TicketCollection(CollectionModel):
     """Ticket Collection"""

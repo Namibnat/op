@@ -23,6 +23,7 @@ from op.op import (
     show_project_by_id,
     set_project_by_id,
     add_project_resources,
+    remove_project_resources,
     handle_project_resources,
 )
 from op.models import BucketCollection, ProjectCollection
@@ -579,8 +580,118 @@ def test_handle_project_resources(isolated_storage_dir: Path, sample_base_data: 
     user_inputs = iter([""])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
 
-    args = argparse.Namespace(add="ff0e8400")
+    args = argparse.Namespace(add="ff0e8400", remove=None)
     handle_project_resources(args)
     captured = capsys.readouterr()
 
     assert "No resources added" in captured.out
+
+
+def test_remove_project_resources_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify remove_project_resources prompts for resource ID and deletes it.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "110e8400-e29b-41d4-a716-446655440000"
+    res_id = "220e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Delete UI Project",
+        "spec": "Spec",
+        "state": "active",
+        "done_when": "Done",
+        "date_created": "2026-08-19",
+        "resources": {
+            res_id: {
+                "type": "doc",
+                "label": "Old Design",
+                "location": "docs/design.md",
+            }
+        },
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    user_inputs = iter(["220e8400"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    remove_project_resources("110e8400")
+    captured = capsys.readouterr()
+
+    assert "Enter the resource ID to remove" in captured.out
+    assert "Resource deleted..." in captured.out
+
+    project_col = ProjectCollection()
+    project = project_col.get_project("110e8400")
+    assert project is not None
+    assert len(project.resources) == 0
+
+
+def test_remove_project_resources_failed(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify remove_project_resources prints 'Delete failed' on nonexistent resource key.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "330e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Failed Delete Project",
+        "spec": "Spec",
+        "state": "active",
+        "done_when": "Done",
+        "date_created": "2026-08-19",
+        "resources": {},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    user_inputs = iter(["nonexistent-res"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    remove_project_resources("330e8400")
+    captured = capsys.readouterr()
+
+    assert "Delete failed" in captured.out
+
+
+def test_remove_project_resources_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify remove_project_resources exits when project is missing.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    remove_project_resources("nonexistent-proj")
+    captured = capsys.readouterr()
+
+    assert "No project found with an ID starting with nonexistent-proj" in captured.out
+
+
+def test_handle_project_resources_remove(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify handle_project_resources delegates to remove_project_resources when --remove is passed.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "440e8400-e29b-41d4-a716-446655440000"
+    res_id = "550e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Handler Remove Project",
+        "spec": "Spec",
+        "state": "active",
+        "done_when": "Done",
+        "date_created": "2026-08-19",
+        "resources": {
+            res_id: {
+                "type": "link",
+                "label": "Old Link",
+                "location": "http://example.com",
+            }
+        },
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    user_inputs = iter(["550e8400"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    args = argparse.Namespace(add=None, remove="440e8400")
+    handle_project_resources(args)
+    captured = capsys.readouterr()
+
+    assert "Resource deleted..." in captured.out

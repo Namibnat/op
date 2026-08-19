@@ -362,11 +362,16 @@ def list_project_items(args):
     print(display)
 
 
-def show_project_by_id(pk: str, state_update: bool = False):
+def show_project_by_id(
+        pk: str,
+        state_update: bool = False,
+        deleted: bool = False
+) -> Project | None:
     """Show a single project by ID
 
     :param pk: Project ID
     :param state_update: Was the state updated
+    :param deleted: If a resource was deleted
     """
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
@@ -392,6 +397,7 @@ def show_project_by_id(pk: str, state_update: bool = False):
             resources_output = '\nPROJECT RESOURCES:\n--------------------------------------\n'
             for resource_key, resource in resources.items():
                 resource_output = (
+                    f"ID:       {resource_key[:8]}\n"
                     f"Type:     {resource.type}\n"
                     f"Label:    {resource.label}\n"
                     f"Location: {resource.location}\n"
@@ -420,9 +426,13 @@ def show_project_by_id(pk: str, state_update: bool = False):
         f" PROJECT"
         f"{item_sep}"
         f"{project_output}"
-        f"{item_sep}"
     )
     print(display)
+
+    if deleted:
+        print("\nResource deleted...\n\n")
+    print(f"{item_sep}")
+    return project
 
 
 def set_project_by_id(pk: str):
@@ -511,9 +521,35 @@ def add_project_resources(pk):
     show_project_by_id(project.pk)
 
 
+def remove_project_resources(pk: str):
+    """Remove a project resource
+
+    :param pk: Project ID
+    """
+    project_interface = ProjectCollection()
+    project = show_project_by_id(pk)
+    if not project:
+        return
+
+    print("Enter the resource ID to remove, or enter to cancel")
+    partial_key = input("Key: ").strip()
+    if not partial_key:
+        print("Cancelled")
+        return
+
+    success = project_interface.delete_project_resource(project.pk, partial_key)
+    if success:
+        show_project_by_id(pk, deleted=success)
+        return
+
+    print("\nDelete failed\n")
+
+
 def handle_project_resources(args):
     if args.add:
         add_project_resources(args.add)
+    if args.remove:
+        remove_project_resources(args.remove)
 
 
 def main():

@@ -121,6 +121,7 @@ A high-level outcome or deliverable with defined completion criteria.
   - `op project show <id>`: Display project details and its attached resources.
   - `op project set <id>`: Interactively transition project lifecycle state.
   - `op project resources --add <id>`: Interactively attach one or more resources to an existing project.
+  - `op project resources --remove <id>`: Interactively select and remove a resource from a project.
 - **Tickets Link**: A project will aggregate related tickets.
 
 ### 4.4 Tickets (Actionable Work Units)

@@ -144,3 +144,14 @@ class TestParser:
         assert args.command == "project"
         assert args.project_command == "resources"
         assert args.add == "d4e5f6a7"
+
+    def test_parser_project_resources_remove(self):
+        """Verify parsing 'project resources --remove <id>' captures project, resources, and remove id.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["project", "resources", "--remove", "e5f6a7b8"])
+        assert args.command == "project"
+        assert args.project_command == "resources"
+        assert args.remove == "e5f6a7b8"
