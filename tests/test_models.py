@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from op.config import BASE_STRUCTURE
-from op.schema import Bucket, Project, ProjectState, ProjectResource
+from op.schema import Bucket, Project, ProjectState, ProjectResource, Ticket, TicketState
 from op.models import (
     CollectionModel,
     BucketCollection,
@@ -623,6 +623,69 @@ class TestTicketCollection:
         """
         ticket_col = TicketCollection()
         assert ticket_col.count_active_tickets() == 0
+
+    def test_count_active_tickets_populated(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify count_active_tickets returns count of stored tickets.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t1": {"title": "Task 1", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t2": {"title": "Task 2", "state": "in_progress", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        assert ticket_col.count_active_tickets() == 2
+
+    def test_create_ticket_standalone(self, isolated_storage_dir: Path):
+        """Verify create() stores standalone ticket to disk with pk excluded in dictionary.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        ticket_col = TicketCollection()
+        ticket = Ticket(title="Buy electrical tape", context="errands")
+        created = ticket_col.create(ticket)
+
+        assert isinstance(created, Ticket)
+        assert created.title == "Buy electrical tape"
+        assert created.project is None
+        assert created.context == "errands"
+        assert ticket_col.count_active_tickets() == 1
+
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        assert created.pk in disk_data["tickets"]
+        assert "pk" not in disk_data["tickets"][created.pk]
+        assert disk_data["tickets"][created.pk]["title"] == "Buy electrical tape"
+
+    def test_create_ticket_project_linked(self, isolated_storage_dir: Path):
+        """Verify create() stores project-linked ticket with due_at.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        ticket_col = TicketCollection()
+        ticket = Ticket(
+            title="Solder wiring harness",
+            state=TicketState.IN_PROGRESS,
+            project="proj-1234",
+            actionable=True,
+            context="lab",
+            time_bound=True,
+            due_at=datetime.datetime(2026, 10, 15, 12, 0),
+        )
+        created = ticket_col.create(ticket)
+
+        assert created.project == "proj-1234"
+        assert created.state == TicketState.IN_PROGRESS
+        assert created.time_bound is True
+
+        with open(isolated_storage_dir / "planner.json", "r") as f:
+            disk_data = json.load(f)
+        saved = disk_data["tickets"][created.pk]
+        assert saved["project"] == "proj-1234"
+        assert saved["due_at"] == "2026-10-15T12:00:00"
 
 
 class TestRoutinesCollection:

@@ -1,8 +1,8 @@
 """Planner elements schema"""
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Self
 import uuid
 
 from pydantic import BaseModel, Field, model_validator
@@ -50,3 +50,33 @@ class Project(BaseModel):
                 if isinstance(res_val, dict):
                     res_val["pk"] = res_pk
         return data
+
+
+class TicketState(str, Enum):
+    """Ticket states"""
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+    CANCELLED = "cancelled"
+
+
+class Ticket(BaseModel):
+    """Define tickets"""
+    pk: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    state: TicketState = TicketState.OPEN
+    project: str | None = None
+    actionable: bool = True
+    context: str = ""
+    date_created: date= Field(default_factory=date.today)
+    date_completed: date | None = None
+    time_bound: bool = False
+    due_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_due_date(self) -> Self:
+        if self.due_at is not None:
+            self.time_bound = True
+        if self.time_bound and self.due_at is None:
+            raise ValueError("Time-bound tickets must have a due date")
+        return self

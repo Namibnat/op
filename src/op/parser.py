@@ -57,4 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
     resource_project_parser.add_argument("--add", type=str)
     resource_project_parser.add_argument("--remove", type=str)
 
+    # ---- Ticket Args ----------------------------
+    ticket_parser = subparsers.add_parser('ticket')
+    ticket_subparsers = ticket_parser.add_subparsers(
+        dest="ticket_command"
+    )
+    create_ticket_parser = ticket_subparsers.add_parser("create")
+    create_ticket_parser.add_argument("id", nargs="?", type=str)
+
     return parser

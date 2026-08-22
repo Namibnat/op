@@ -25,8 +25,11 @@ from op.op import (
     add_project_resources,
     remove_project_resources,
     handle_project_resources,
+    create_ticket,
+    create_ticket_from_id,
+    ticket_create_dispatch,
 )
-from op.models import BucketCollection, ProjectCollection
+from op.models import BucketCollection, ProjectCollection, TicketCollection
 
 
 def test_package_import():
@@ -80,7 +83,7 @@ def test_get_dashboard_data_populated(isolated_storage_dir: Path, sample_base_da
     data = get_dashboard_data()
     assert data["num_buckets"] == 2
     assert data["active_projects"] == 1
-    assert data["active_tickets"] == 0
+    assert data["active_tickets"] == 2
     assert data["active_habits"] == 0
 
 
@@ -695,3 +698,234 @@ def test_handle_project_resources_remove(isolated_storage_dir: Path, sample_base
     captured = capsys.readouterr()
 
     assert "Resource deleted..." in captured.out
+
+
+def test_create_ticket_standalone_open(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify create_ticket creates a standalone open ticket.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    # Inputs: title, state ("" -> open), context ("home"), due_date ("" -> not time bound)
+    user_inputs = iter(["Clean the gutters", "", "home", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    success = create_ticket()
+    assert success is True
+
+    captured = capsys.readouterr()
+    assert "Enter ticket details:" in captured.out
+
+    ticket_col = TicketCollection()
+    assert ticket_col.count_active_tickets() == 1
+    tickets = ticket_col.read_all("tickets")
+    t_data = list(tickets.values())[0]
+    assert t_data["title"] == "Clean the gutters"
+    assert t_data["state"] == "open"
+    assert t_data["project"] is None
+    assert t_data["actionable"] is True
+    assert t_data["context"] == "home"
+    assert t_data["time_bound"] is False
+    assert t_data["due_at"] is None
+
+
+def test_create_ticket_standalone_in_progress(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch):
+    """Verify create_ticket sets in_progress state when selecting option 1.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    # Inputs: title, state ("1" -> in_progress), context ("office"), due_date ("")
+    user_inputs = iter(["Write Q3 report", "1", "office", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_ticket()
+
+    ticket_col = TicketCollection()
+    tickets = ticket_col.read_all("tickets")
+    t_data = list(tickets.values())[0]
+    assert t_data["title"] == "Write Q3 report"
+    assert t_data["state"] == "in_progress"
+
+
+def test_create_ticket_with_datetime_due_at(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch):
+    """Verify create_ticket parses full datetime for time-bound ticket.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    # Inputs: title, state (""), context ("lab"), due_date ("2026-10-12 11:30")
+    user_inputs = iter(["Submit abstract", "", "lab", "2026-10-12 11:30"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_ticket()
+
+    ticket_col = TicketCollection()
+    tickets = ticket_col.read_all("tickets")
+    t_data = list(tickets.values())[0]
+    assert t_data["time_bound"] is True
+    assert t_data["due_at"] == "2026-10-12T11:30:00"
+
+
+def test_create_ticket_with_date_only_due_at(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch):
+    """Verify create_ticket defaults time to 00:00 when only date is given.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    # Inputs: title, state (""), context (""), due_date ("2026-10-12")
+    user_inputs = iter(["Pay electric bill", "", "", "2026-10-12"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_ticket()
+
+    ticket_col = TicketCollection()
+    tickets = ticket_col.read_all("tickets")
+    t_data = list(tickets.values())[0]
+    assert t_data["time_bound"] is True
+    assert t_data["due_at"] == "2026-10-12T00:00:00"
+
+
+def test_create_ticket_from_id_bucket_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify create_ticket_from_id shows bucket item, creates ticket, and discards bucket.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    bucket_id = "770e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["bucket"][bucket_id] = {
+        "item": "Idea to become ticket",
+        "date_created": "2026-08-22",
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    user_inputs = iter(["Implement idea", "", "computer", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_ticket_from_id("770e8400")
+    captured = capsys.readouterr()
+
+    assert "Idea to become ticket" in captured.out
+
+    # Verify bucket item discarded
+    bucket_col = BucketCollection()
+    assert bucket_col.count_all_buckets() == 0
+
+    # Verify ticket created
+    ticket_col = TicketCollection()
+    assert ticket_col.count_active_tickets() == 1
+    tickets = ticket_col.read_all("tickets")
+    t_data = list(tickets.values())[0]
+    assert t_data["title"] == "Implement idea"
+    assert t_data["project"] is None
+
+
+def test_create_ticket_from_id_project_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify create_ticket_from_id shows project, prompts for actionable, and links project.pk.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    proj_id = "880e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][proj_id] = {
+        "name": "Solar Battery Setup",
+        "spec": "Install panels",
+        "state": "active",
+        "done_when": "Grid tie on",
+        "date_created": "2026-08-17",
+        "resources": {},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    # Inputs: title, state (""), actionable ("1" -> True), context ("shed"), due_date ("")
+    user_inputs = iter(["Order solar inverter", "", "1", "shed", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_ticket_from_id("880e8400")
+    captured = capsys.readouterr()
+
+    assert "Solar Battery Setup" in captured.out
+    assert "If this ticket can be worked on now" in captured.out
+
+    ticket_col = TicketCollection()
+    tickets = ticket_col.read_all("tickets")
+    t_data = list(tickets.values())[0]
+    assert t_data["title"] == "Order solar inverter"
+    assert t_data["project"] == "880e8400"
+    assert t_data["actionable"] is True
+
+
+def test_create_ticket_from_id_project_waiting(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch):
+    """Verify create_ticket_from_id sets actionable=False when user enters non-'1'.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    proj_id = "990e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][proj_id] = {
+        "name": "Kitchen Renovation",
+        "spec": "New cabinets",
+        "state": "active",
+        "done_when": "Installed",
+        "date_created": "2026-08-17",
+        "resources": {},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    # Inputs: title, state (""), actionable ("" -> False), context ("kitchen"), due_date ("")
+    user_inputs = iter(["Install countertops", "", "", "kitchen", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+
+    create_ticket_from_id("990e8400")
+
+    ticket_col = TicketCollection()
+    tickets = ticket_col.read_all("tickets")
+    t_data = list(tickets.values())[0]
+    assert t_data["actionable"] is False
+
+
+def test_create_ticket_from_id_multiple_matches(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify create_ticket_from_id warns user when prefix matches both a bucket and a project.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["bucket"]["aaaa1111-0000-0000-0000-000000000000"] = {
+        "item": "Ambiguous item",
+        "date_created": "2026-08-22",
+    }
+    sample_base_data["projects"]["aaaa2222-0000-0000-0000-000000000000"] = {
+        "name": "Ambiguous project",
+        "spec": "Spec",
+        "state": "active",
+        "done_when": "Done",
+        "date_created": "2026-08-22",
+        "resources": {},
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    create_ticket_from_id("aaaa")
+    captured = capsys.readouterr()
+
+    assert "ID matches multiple options, try a longer ID" in captured.out
+
+
+def test_create_ticket_from_id_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify create_ticket_from_id prints not found message on nonexistent ID.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    create_ticket_from_id("nonexistent")
+    captured = capsys.readouterr()
+
+    assert "No bucket or project found matching ID nonexistent" in captured.out
+
+
+def test_ticket_create_dispatch(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch):
+    """Verify ticket_create_dispatch handles both id and no-id dispatches.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    # 1. No ID dispatch
+    user_inputs = iter(["Standalone dispatch", "", "home", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(user_inputs))
+    ticket_create_dispatch(argparse.Namespace(id=None))
+
+    ticket_col = TicketCollection()
+    assert ticket_col.count_active_tickets() == 1

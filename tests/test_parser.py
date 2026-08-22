@@ -155,3 +155,25 @@ class TestParser:
         assert args.command == "project"
         assert args.project_command == "resources"
         assert args.remove == "e5f6a7b8"
+
+    def test_parser_ticket_create_no_id(self):
+        """Verify parsing 'ticket create' defaults id to None.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["ticket", "create"])
+        assert args.command == "ticket"
+        assert args.ticket_command == "create"
+        assert args.id is None
+
+    def test_parser_ticket_create_with_id(self):
+        """Verify parsing 'ticket create <id>' captures optional id.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["ticket", "create", "f7a8b9c0"])
+        assert args.command == "ticket"
+        assert args.ticket_command == "create"
+        assert args.id == "f7a8b9c0"

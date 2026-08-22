@@ -2,11 +2,12 @@
 
 import datetime
 import os
+import re
 import shutil
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
-from op.schema import ProjectState, Project, ProjectResource
+from op.schema import ProjectState, Project, ProjectResource, TicketState, Ticket
 
 
 def date_string() -> str:
@@ -546,10 +547,130 @@ def remove_project_resources(pk: str):
 
 
 def handle_project_resources(args):
+    """Project Resource dispatch
+
+    :param args: Resource parser args
+    """
     if args.add:
         add_project_resources(args.add)
     if args.remove:
         remove_project_resources(args.remove)
+
+
+def create_ticket(pk: str | None = None, is_project: bool = False) -> bool:
+    """Create a ticket.
+
+    If it gets a project ID, ticket becomes a project "action", otherwise
+    it's a stand-alone ticket.
+
+    :param pk: Project ID
+    :param is_project: Is this a project
+    :return: Success
+    """
+    ticket_interface = TicketCollection()
+
+    # TODO: SHOW NEEDED DETAILS OF BUCKET OR PROJECT....
+
+    print("Enter ticket details:\n")
+    title = input("Title: ")
+    print("Ticket state options:\n - 1. in progress\n - or hit enter")
+    raw_state = input(": ").strip()
+    state = TicketState.IN_PROGRESS if raw_state == '1' else TicketState.OPEN
+    project = pk if is_project else None
+
+    actionable = True  # Non-project tickets should always be able to be worked on
+    if is_project:
+        print("If this ticket can be worked on now\n - 1. Can be worked on now"
+              "\n - or hit enter if still waiting on other tickets")
+        raw_actionable = input(": ").strip()
+        actionable = actionable if raw_actionable == '1' else False
+
+    print("Type the context in which this can be worked on (e.g. 'home', 'shopping',"
+          "and for adding multiple, make them comma separated")
+    context = input(": ").strip()
+
+    print("Input date if time bound (just hit enter if not). "
+          "For date, use the following forms:\n"
+          "'2026-10-12 11:30' for specific time\n"
+          "'2026-10-12' for all day on specific date")
+
+    time_bound = False
+    due_at = None
+    due_date_raw = input(": ").strip()
+    if due_date_raw:
+        date_pattern = re.compile(r"(?P<date>\d{4}-\d{2}-\d{2})")
+        time_pattern = re.compile(r"(?P<time>\d{2}:\d{2})")
+        date_match = date_pattern.search(due_date_raw)
+        time_match = time_pattern.search(due_date_raw)
+        if date_match:
+            date_field = date_match.group('date')
+            due_at = f"{date_field} 00:00"
+            if time_match:
+                time_field = time_match.group('time')
+                due_at = f"{date_field} {time_field}"
+            time_bound = True
+
+    new_ticket_item = Ticket.model_validate(
+        {
+            'title': title,
+            'state': state,
+            "project": project,
+            "actionable": actionable,
+            "context": context,
+            "date_created": datetime.date.today(),
+            "date_completed": None,
+            "time_bound": time_bound,
+            "due_at": due_at
+        }
+
+    )
+
+    ticket_interface.create(new_ticket_item)
+    return True
+
+
+def create_ticket_from_id(pk: str):
+    """Create a ticket from an ID.
+
+    Determine if the ID matches a bucket or project.
+
+    :param pk: ID (project or bucket)
+    """
+    pk = pk.strip()
+    project_interface = ProjectCollection()
+    bucket_interface = BucketCollection()
+
+    bucket = bucket_interface.get_bucket(pk)
+    project = project_interface.get_project(pk)
+
+    if bucket and project:
+        print(f"ID matches multiple options, try a longer ID")
+        return
+
+    if bucket:
+        show_bucket_item_by_id(bucket.pk)
+        create_ticket()
+        bucket_interface.discard_bucket(pk)
+        return
+
+    if project:
+        show_project_by_id(project.pk)
+        create_ticket(pk, is_project=True)
+        return
+    print(f"No bucket or project found matching ID {pk}")
+
+
+def ticket_create_dispatch(args):
+    """Ticket create dispatch
+
+    :param args: To check for ID
+    :return:
+    """
+    if args.id:
+        create_ticket_from_id(args.id)
+        return
+
+    create_ticket()
 
 
 def main():
@@ -586,6 +707,10 @@ def main():
             handle_project_resources(args)
         else:
             list_project_items(args)
+
+    elif args.command == "ticket":
+        if args.ticket_command == "create":
+            ticket_create_dispatch(args)
 
     # Dashboard
     else:

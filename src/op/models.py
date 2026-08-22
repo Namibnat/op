@@ -1,7 +1,7 @@
 """Data models: structure and behaviour of data"""
 import datetime
 
-from op.schema import Bucket, Project, ProjectState, ProjectResource
+from op.schema import Bucket, Project, ProjectState, ProjectResource, TicketState, Ticket
 from op.storage import JsonContainer
 
 
@@ -301,14 +301,32 @@ class TicketCollection(CollectionModel):
     """Ticket Collection"""
     container_name = "tickets"
 
-    @staticmethod
-    def count_active_tickets() -> int:
+    def count_active_tickets(self) -> int:
         """Count active tickets
 
         :return: Number of active tickets
         """
         active_tickets = 0
+
+        data_tickets = self.read_all(self.container_name)
+        if not data_tickets:
+            return active_tickets
+
+        active_tickets = len(data_tickets)
         return active_tickets
+
+    def create(self, new_ticket_item: Ticket) -> Ticket:
+        """Create a new ticket
+
+        :param new_ticket_item: The ticket being created.
+        :return: The ticket after creation
+        """
+        data_ticket = new_ticket_item.model_dump(mode="json", exclude={"pk"})
+        self.data[self.container_name][new_ticket_item.pk] = data_ticket
+
+        self.save_data()
+
+        return new_ticket_item
 
 
 class RoutinesCollection(CollectionModel):

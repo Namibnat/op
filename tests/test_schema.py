@@ -150,3 +150,100 @@ class TestProjectResourceSchema:
         assert res.type == "link"
         assert res.label == "Figma"
         assert res.location == "https://figma.com"
+
+
+class TestTicketSchema:
+    """Tests for Ticket schema and TicketState enum.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+
+    def test_ticket_state_enum_values(self):
+        """Verify TicketState defines expected lifecycle states.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        from op.schema import TicketState
+        assert TicketState.OPEN == "open"
+        assert TicketState.IN_PROGRESS == "in_progress"
+        assert TicketState.DONE == "done"
+        assert TicketState.CANCELLED == "cancelled"
+
+    def test_ticket_defaults_standalone(self):
+        """Verify Ticket initializes valid standalone defaults.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        from op.schema import Ticket, TicketState
+        t = Ticket(title="Call electrician")
+        assert len(t.pk) == 36
+        assert t.title == "Call electrician"
+        assert t.state == TicketState.OPEN
+        assert t.project is None
+        assert t.actionable is True
+        assert t.context == ""
+        assert t.date_created == datetime.date.today()
+        assert t.date_completed is None
+        assert t.time_bound is False
+        assert t.due_at is None
+
+    def test_ticket_explicit_project_and_time_bound(self):
+        """Verify Ticket accepts project linkage and parses due_at datetime.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        from op.schema import Ticket, TicketState
+        t = Ticket.model_validate(
+            {
+                "pk": "t1-uuid",
+                "title": "Buy wire connectors",
+                "state": "in_progress",
+                "project": "proj-123",
+                "actionable": True,
+                "context": "hardware store",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": True,
+                "due_at": "2026-10-12 14:30",
+            }
+        )
+        assert t.pk == "t1-uuid"
+        assert t.title == "Buy wire connectors"
+        assert t.state == TicketState.IN_PROGRESS
+        assert t.project == "proj-123"
+        assert t.context == "hardware store"
+        assert t.due_at == datetime.datetime(2026, 10, 12, 14, 30)
+        assert t.time_bound is True
+
+    def test_ticket_due_at_auto_infers_time_bound(self):
+        """Verify setting due_at automatically sets time_bound to True.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        from op.schema import Ticket
+        t = Ticket(title="Tax return", due_at=datetime.datetime(2026, 10, 15, 0, 0))
+        assert t.time_bound is True
+
+    def test_ticket_time_bound_without_due_at_raises_error(self):
+        """Verify time_bound=True without due_at raises ValueError.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        from op.schema import Ticket
+        with pytest.raises(ValidationError, match="Time-bound tickets must have a due date"):
+            Ticket(title="Must do today", time_bound=True, due_at=None)
+
+    def test_ticket_json_serialization(self):
+        """Verify Ticket serializes properly with and without pk exclusion.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        from op.schema import Ticket
+        t = Ticket(pk="custom-ticket-pk", title="Write tests")
+        dumped_all = t.model_dump(mode="json")
+        assert dumped_all["pk"] == "custom-ticket-pk"
+        assert dumped_all["title"] == "Write tests"
+
+        dumped_no_pk = t.model_dump(mode="json", exclude={"pk"})
+        assert "pk" not in dumped_no_pk
+        assert dumped_no_pk["title"] == "Write tests"

@@ -125,13 +125,15 @@ A high-level outcome or deliverable with defined completion criteria.
 - **Tickets Link**: A project will aggregate related tickets.
 
 ### 4.4 Tickets (Actionable Work Units)
-Individual executable steps. Diverging from strict single-next-action GTD, a project may have multiple parallel actionable tickets simultaneously.
-- **Stored In**: `planner.json["tickets"]` (keyed by ticket ID)
-- **Fields**: ID, project_id (optional for standalone tasks), title, description, context tags (e.g., `["terminal", "phone", "errand"]`), `actionable` boolean, `available_from` date (deferral), `due` date (deadline), `blocked_by` (list of prerequisite ticket IDs), status (`open`, `in_progress`, `done`, `cancelled`).
-- **Actionability**: Computed dynamically. A ticket is actionable if:
-  - `status == "open"`
-  - `available_from <= today` (or unset)
-  - All prerequisite tickets in `blocked_by` are resolved (`done`).
+Individual executable steps. Diverging from strict single-next-action GTD, a project may have multiple parallel actionable tickets simultaneously, or tickets may exist as standalone next actions.
+- **Stored In**: `planner.json["tickets"]` (keyed by UUID string)
+- **Fields**: `pk` (UUID), `title`, `state` (`open`, `in_progress`, `done`, `cancelled`), `project` (optional project UUID string or `None`), `actionable` boolean, `context` string, `date_created` (ISO date), `date_completed` (optional ISO date), `time_bound` boolean, `due_at` (optional ISO datetime).
+- **Validation Rules**:
+  - `time_bound` is automatically inferred as `True` if `due_at` is set.
+  - If `time_bound=True`, a valid `due_at` must be supplied.
+- **CLI Commands**:
+  - `op ticket create`: Interactively create a standalone next-action ticket.
+  - `op ticket create <id>`: Convert a bucket item into a ticket (discarding the bucket) or attach a new ticket/action to an existing project.
 
 ### 4.5 Habits & Routines
 Recurring items structured with a strict separation between **Definition** and **History**.

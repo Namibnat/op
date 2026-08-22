@@ -4,6 +4,12 @@ A tool that combines personal project management through a GTD style system
 with routines and habit tracking and other miscellaneous tracking for things like
 finances.
 
+Although I called it a "planner", it is not a tool for planning, it is a tool
+for capturing planning.  This is most true for projects.  Projects can be in
+all sorts of places and the thinking and planning belongs to the project. Use op
+to capture and organise.
+
+
 ## Features
 
 - A GTD style app, with a slight modification where projects have tickets rather than next items.
@@ -55,8 +61,8 @@ op
 # -- Bucket Workflow (Capture & Triage)
 op bucket add "Start a luxury donkey spa"   # Create a bucket with a text string
 op bucket list                              # List existing buckets
-op bucket show --id-prefix--                # See one bucket's details by giving a prefix of the ID
-op bucket discard --id-prefix--             # Discard a bucket
+op bucket show <bucket-id>                  # See one bucket's details by giving a prefix of the ID
+op bucket discard <bucket-id>               # Discard a bucket
 
 
 # Projects | Any action requiring more than one step
@@ -65,16 +71,27 @@ op bucket discard --id-prefix--             # Discard a bucket
 # resources live, not live links, etc.
 
 # -- Project Workflow
-op project create --id-prefix--             # Create a project based on a bucket (deletes the bucket)
+op project create <bucket-id>               # Create a project based on a bucket (deletes the bucket)
 op project list                             # Lists ACTIVE projects
 op project list --all                       # List all projects
 op project list --state new                 # List projects that have not yet been started
 op project list --state done                # List projects that have been completed
 op project list --state archived            # List projects that were never completed but paused
-op project show --id-prefix--               # Show a project's details
-op project set --id-prefix--                # To update a project's state [new, active, done, archived]
-op project resource --all --id-prefix--     # Add a resource to a project
-op project resource --remove --id-prefix--  # Delete a resource from a project
+op project show <project-id>                # Show a project's details
+op project set <project-id>                 # To update a project's state [new, active, done, archived]
+op project resource --all <project-id>      # Add a resources to a project
+op project resource --remove <project-id>   # Delete a resource from a project
+
+
+# Tickets | For GTD, think 'actions'
+
+# Unlike GTD, a project might have multiple tickets that can be actioned next
+# Tickets can belong to a project or simply stand-alone
+
+# -- Ticket Workflow
+op ticket create <bucket-id>                # Create a one-action ticket out of a bucket
+op ticket create <project-id>               # Create a ticket for a project
+op ticket create                            # Create a one-action ticket directly
 
 ```
 
