@@ -1,7 +1,7 @@
 """Planner elements schema"""
 
 from datetime import date, datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any, Self
 import uuid
 
@@ -15,7 +15,7 @@ class Bucket(BaseModel):
     date_created: date
 
 
-class ProjectState(str, Enum):
+class ProjectState(StrEnum):
     """Define project state"""
     NOT_STARTED = "not_started"
     ACTIVE = "active"
@@ -52,7 +52,7 @@ class Project(BaseModel):
         return data
 
 
-class TicketState(str, Enum):
+class TicketState(StrEnum):
     """Ticket states"""
     OPEN = "open"
     IN_PROGRESS = "in_progress"

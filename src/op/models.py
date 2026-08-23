@@ -1,5 +1,6 @@
 """Data models: structure and behaviour of data"""
 import datetime
+from typing import List
 
 from op.schema import Bucket, Project, ProjectState, ProjectResource, TicketState, Ticket
 from op.storage import JsonContainer
@@ -301,6 +302,27 @@ class TicketCollection(CollectionModel):
     """Ticket Collection"""
     container_name = "tickets"
 
+    @staticmethod
+    def create_ticket_models(data_tickets: dict) -> list[Ticket] | None:
+        """Expand dict of tickets into list of tickets models
+
+        :param data_tickets: Tickets in the store form
+        :return: List of project models
+        """
+        tickets = list()
+        if not data_tickets:
+            return None
+
+        for key, value in data_tickets.items():
+            tickets.append(
+                Ticket.model_validate(
+                    {'pk': key,
+                     **value
+                     }
+                )
+            )
+        return tickets
+
     def count_active_tickets(self) -> int:
         """Count active tickets
 
@@ -327,6 +349,27 @@ class TicketCollection(CollectionModel):
         self.save_data()
 
         return new_ticket_item
+
+    def get_project_tickets(self, pk: str) -> List[Ticket] | None:
+        """Get all tickets for a project.
+
+        :param pk: Project ID
+        :return: List of tickets
+        """
+        data_tickets = self.read_all(self.container_name)
+
+        if not data_tickets:
+            return None
+
+        all_tickets = self.create_ticket_models(data_tickets)
+
+        project_tickets = []
+
+        for data_ticket in all_tickets:
+            if data_ticket.project.startswith(pk):
+                project_tickets.append(project_tickets)
+
+        return project_tickets
 
 
 class RoutinesCollection(CollectionModel):

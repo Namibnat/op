@@ -847,7 +847,7 @@ def test_create_ticket_from_id_project_success(isolated_storage_dir: Path, sampl
     tickets = ticket_col.read_all("tickets")
     t_data = list(tickets.values())[0]
     assert t_data["title"] == "Order solar inverter"
-    assert t_data["project"] == "880e8400"
+    assert t_data["project"] == proj_id
     assert t_data["actionable"] is True
 
 

@@ -374,12 +374,17 @@ def show_project_by_id(
     :param state_update: Was the state updated
     :param deleted: If a resource was deleted
     """
+    pk = pk.strip()
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
     title_line_full = create_title_line(terminal_width)
 
     project_interface = ProjectCollection()
-    project = project_interface.get_project(pk.strip())
+    ticket_interface = TicketCollection()
+    project = project_interface.get_project(pk)
+    if project:
+        project_tickets = ticket_interface.get_project_tickets(pk)
+        print(str(project_tickets))  # TODO: CAPTURE AND FORMAT IN OUTPUT.
 
     project_output = f"\nNo project found with an ID starting with {pk.strip()}"
     if project:
@@ -457,7 +462,9 @@ def set_project_by_id(pk: str):
 
     print("Choose state (enter the number)\n\n")
 
-    for index, possible_state in enumerate(ProjectState, start=1):
+    states = list(ProjectState.__members__.values())
+
+    for index, possible_state in enumerate(states, start=1):
         print(f" - {index}: {possible_state.value}")
 
     print()
@@ -470,7 +477,7 @@ def set_project_by_id(pk: str):
 
     choice_value = int(choice)
 
-    state = list(ProjectState)[choice_value - 1]
+    state: ProjectState = states[choice_value - 1]
     project_interface.set_project_state(pk, state)
 
     os.system('clear')
@@ -655,7 +662,7 @@ def create_ticket_from_id(pk: str):
 
     if project:
         show_project_by_id(project.pk)
-        create_ticket(pk, is_project=True)
+        create_ticket(project.pk, is_project=True)
         return
     print(f"No bucket or project found matching ID {pk}")
 
@@ -671,6 +678,13 @@ def ticket_create_dispatch(args):
         return
 
     create_ticket()
+
+
+def list_ticket_items():
+    """List ticket items"""
+    ticket_interface = TicketCollection()
+    all_tickets = None
+    print("All tickets:")
 
 
 def main():
@@ -711,6 +725,8 @@ def main():
     elif args.command == "ticket":
         if args.ticket_command == "create":
             ticket_create_dispatch(args)
+        elif args.ticket_command == "list":
+            list_ticket_items()
 
     # Dashboard
     else:

@@ -65,4 +65,6 @@ def build_parser() -> argparse.ArgumentParser:
     create_ticket_parser = ticket_subparsers.add_parser("create")
     create_ticket_parser.add_argument("id", nargs="?", type=str)
 
+    ticket_subparsers.add_parser("list")
+
     return parser
