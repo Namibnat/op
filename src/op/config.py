@@ -15,3 +15,5 @@ BASE_STRUCTURE = {
 
 # Standard date string form in the project
 DATE_STR_FORM = "%Y-%m-%d"
+
+ID_DISPLAY_LENGTH = 8

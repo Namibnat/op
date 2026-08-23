@@ -28,6 +28,9 @@ from op.op import (
     create_ticket,
     create_ticket_from_id,
     ticket_create_dispatch,
+    output_id_string,
+    list_ticket_items,
+    main,
 )
 from op.models import BucketCollection, ProjectCollection, TicketCollection
 
@@ -49,6 +52,31 @@ def test_date_string_format():
     # Parsing with strptime validates expected format
     parsed = datetime.datetime.strptime(formatted, "%A, %d %B %Y")
     assert parsed.year == datetime.datetime.now().year
+
+
+def test_output_id_string_valid():
+    """Verify output_id_string truncates string to ID_DISPLAY_LENGTH (8 chars).
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    assert output_id_string("1234567890abcdef") == "12345678"
+
+
+def test_output_id_string_short():
+    """Verify output_id_string returns shorter string when length is under ID_DISPLAY_LENGTH.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    assert output_id_string("1234") == "1234"
+
+
+def test_output_id_string_empty_raises_value_error():
+    """Verify output_id_string raises ValueError when input is empty string.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    with pytest.raises(ValueError, match="ID string cannot be empty"):
+        output_id_string("")
 
 
 def test_get_dashboard_data_empty(isolated_storage_dir: Path):
@@ -993,3 +1021,87 @@ def test_ticket_create_dispatch(isolated_storage_dir: Path, sample_base_data: di
 
     ticket_col = TicketCollection()
     assert ticket_col.count_active_tickets() == 1
+
+
+def test_list_ticket_items_empty(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify list_ticket_items prints 'No tickets found' when ticket store is empty.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    list_ticket_items()
+    captured = capsys.readouterr()
+    assert "No tickets found" in captured.out
+
+
+def test_list_ticket_items_populated(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify list_ticket_items lists all tickets with ID, Created date, State, and Title.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["tickets"] = {
+        "11112222-3333-4444-5555-666677778888": {
+            "title": "Alpha ticket",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+        "99998888-7777-6666-5555-444433332222": {
+            "title": "Beta ticket",
+            "state": "in_progress",
+            "project": None,
+            "actionable": True,
+            "context": "office",
+            "date_created": "2026-08-21",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_ticket_items()
+    captured = capsys.readouterr()
+
+    assert "TICKETS - 2 projects" in captured.out
+    assert "ID:           11112222" in captured.out
+    assert "Title:        Alpha ticket" in captured.out
+    assert "State:        open" in captured.out
+    assert "ID:           99998888" in captured.out
+    assert "Title:        Beta ticket" in captured.out
+    assert "State:        in_progress" in captured.out
+
+
+def test_main_ticket_list_dispatch(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify main() dispatches 'ticket list' to list_ticket_items.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["tickets"] = {
+        "11112222-3333-4444-5555-666677778888": {
+            "title": "Alpha ticket",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    monkeypatch.setattr("sys.argv", ["op", "ticket", "list"])
+    main()
+    captured = capsys.readouterr()
+
+    assert "TICKETS - 1 projects" in captured.out
+    assert "Alpha ticket" in captured.out
+

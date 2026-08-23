@@ -8,6 +8,7 @@ import shutil
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
 from op.schema import ProjectState, Project, ProjectResource, TicketState, Ticket
+from op.config import ID_DISPLAY_LENGTH
 
 
 def date_string() -> str:
@@ -17,6 +18,13 @@ def date_string() -> str:
     """
     date = datetime.datetime.now()
     return date.strftime("%A, %d %B %Y")
+
+
+def output_id_string(pk: str) -> str:
+    """Create a formatted id string for printing"""
+    if not pk:
+        raise ValueError("ID string cannot be empty")
+    return pk[:ID_DISPLAY_LENGTH]
 
 
 def create_item_seperator(terminal_width: int) -> str:
@@ -156,7 +164,7 @@ def list_bucket_items():
         for bucket in all_buckets:
             created_date = bucket.date_created
             item = bucket.item
-            primary_key = bucket.pk[:8]
+            primary_key = output_id_string(bucket.pk)
             print_line = f"{primary_key}  {created_date}  {item[:reasonable_item_length]}"
             print_lines.append(print_line)
 
@@ -189,10 +197,10 @@ def show_bucket_item_by_id(pk: str):
 
     bucket_output = f"\nNo bucket found with an ID starting with {pk.strip()}"
     if bucket:
-        bucket_id = bucket.pk
+        bucket_id = output_id_string(bucket.pk)
         created_date = bucket.date_created
         item = bucket.item
-        bucket_output = f"ID: {bucket_id[:8]}\n[Created: {created_date}]\n\n{item}"
+        bucket_output = f"ID: {bucket_id}\n[Created: {created_date}]\n\n{item}"
 
     display = (
         "\n\n"
@@ -296,7 +304,7 @@ def create_project_by_id(pk: str):
     bucket_interface.discard_bucket(pk.strip())
 
     project_state = new_project.state
-    primary_key = new_project.pk[:8]
+    primary_key = output_id_string(new_project.pk)
 
     display = (
         " PROJECT"
@@ -344,7 +352,7 @@ def list_project_items(args):
         for project in all_projects:
             created_date = project.date_created
             name = project.name
-            primary_key = project.pk[:8]
+            primary_key = output_id_string(project.pk)
             print_line = f"{primary_key}  {created_date}  {name[:reasonable_item_length]}"
             print_lines.append(print_line)
 
@@ -393,15 +401,16 @@ def show_project_by_id(
         )
         if project_tickets:
             for ticket in project_tickets:
+                ticket_id = output_id_string(ticket.pk)
                 actionable_str = "Y" if ticket.actionable else "N"
 
-                ticket_output_collection.append(f"{ticket.pk[:8]}  {actionable_str}  "
+                ticket_output_collection.append(f"{ticket_id}  {actionable_str}  "
                                                 f"         {ticket.title}\n")
             tickets_output = "\n".join(ticket_output_collection)
 
     project_output = f"\nNo project found with an ID starting with {pk.strip()}"
     if project:
-        project_id = project.pk[:8]
+        project_id = output_id_string(project.pk)
         name = project.name
         spec = project.spec
         state = project.state.title()
@@ -415,8 +424,9 @@ def show_project_by_id(
         if resources:
             resources_output = '\nPROJECT RESOURCES:\n--------------------------------------\n'
             for resource_key, resource in resources.items():
+                resource_id = output_id_string(resource_key)
                 resource_output = (
-                    f"ID:       {resource_key[:8]}\n"
+                    f"ID:       {resource_id}\n"
                     f"Type:     {resource.type}\n"
                     f"Label:    {resource.label}\n"
                     f"Location: {resource.location}\n"
@@ -697,23 +707,47 @@ def ticket_create_dispatch(args):
 def list_ticket_items():
     """List ticket items
 
-    Ticket:
-    Status: todo list_ticket_items() in op.py is currently a stub — it prints a header and does nothing.
-    Needs to list all tickets in a scannable table
-    (mirroring the bucket/project list formatting already established:
-    short ID, created date, state, title), sorted newest-first.
-    Should support filtering, at minimum by state and by "actionable now",
-    since that's the primary lens tickets are meant to be worked through (per spec §4.4).
-    Should also support filtering to a single project's tickets (e.g. --project <id>),
-    since per the guiding principle above that's expected to be the more
-    common view than the full flat list — op project show already lists
-    a project's tickets inline, so this gives the same view as its own scoped/filterable command.
-    Project-linked tickets in the unscoped list should still show their parent project's short ID
-    or name inline, since a bare ticket list otherwise loses that context.
+
     """
     ticket_interface = TicketCollection()
-    all_tickets = None
-    print("All tickets:")
+    all_tickets = ticket_interface.get_all_tickets()
+    if not all_tickets:
+        print("No tickets found")
+        return
+
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    len_all_tickets = len(all_tickets)
+
+    ticket_items = list()
+    all_tickets = sorted(all_tickets, key=lambda x: x.date_created)
+    for ticket in all_tickets:
+        short_id = output_id_string(ticket.pk)
+        created_date = ticket.date_created
+        state = ticket.state
+        title = ticket.title
+        ticket_display = (
+            f"ID:           {short_id}\n"
+            f"Created date: {created_date}\n"
+            f"State:        {state}\n"
+            f"Title:        {title}\n"
+        )
+        ticket_items.append(ticket_display)
+
+    ticket_items_string = '\n'.join(ticket_items)
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n\n"
+        f" TICKETS - {len_all_tickets} projects"
+        f"{item_sep}"
+        f"{ticket_items_string}"
+        f"{item_sep}"
+    )
+    print(display)
 
 
 def main():
