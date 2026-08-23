@@ -84,7 +84,7 @@ def print_dashboard(dashboard_data: dict):
     print(dashboard)
 
 
-def get_dashboard_data():
+def get_dashboard_data() -> dict:
     """Get the view of the data needed to fill the dashboard
 
     :return: Dashboard Data
@@ -382,9 +382,20 @@ def show_project_by_id(
     project_interface = ProjectCollection()
     ticket_interface = TicketCollection()
     project = project_interface.get_project(pk)
+
+    tickets_output = ''
     if project:
         project_tickets = ticket_interface.get_project_tickets(pk)
-        print(str(project_tickets))  # TODO: CAPTURE AND FORMAT IN OUTPUT.
+        ticket_output_collection = list()
+        ticket_output_collection.append(
+            '\n\nPROJECT TICKETS:\n--------------------------------------\n'
+            'ID        Title'
+        )
+        if project_tickets:
+            for ticket in project_tickets:
+
+                ticket_output_collection.append(f"{ticket.pk[:8]}  {ticket.title}\n")
+            tickets_output = "\n".join(ticket_output_collection)
 
     project_output = f"\nNo project found with an ID starting with {pk.strip()}"
     if project:
@@ -423,6 +434,7 @@ def show_project_by_id(
             f"Done when:\n\t{done_when}\n\n"
             f"{state_output}\n"
             f"{resources_output}"
+            f"{tickets_output}"
         )
 
     display = (

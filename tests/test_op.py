@@ -486,6 +486,57 @@ def test_show_project_by_id_with_resources(isolated_storage_dir: Path, sample_ba
     assert "Location: https://api.example.com" in captured.out
 
 
+def test_show_project_by_id_with_tickets(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify show_project_by_id displays PROJECT TICKETS section when tickets are attached to the project.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    project_id = "ee0e8400-e29b-41d4-a716-446655440000"
+    sample_base_data["projects"][project_id] = {
+        "name": "Project With Tickets",
+        "spec": "Spec with tickets",
+        "state": "active",
+        "done_when": "All tickets closed",
+        "date_created": "2026-08-20",
+        "resources": {},
+    }
+    sample_base_data["tickets"] = {
+        "t-11111111-2222-3333-4444-555555555555": {
+            "title": "Subtask Alpha",
+            "state": "open",
+            "project": project_id,
+            "actionable": True,
+            "context": "office",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+        "t-22222222-2222-3333-4444-555555555555": {
+            "title": "Subtask Beta",
+            "state": "in_progress",
+            "project": project_id,
+            "actionable": True,
+            "context": "office",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    show_project_by_id("ee0e8400")
+    captured = capsys.readouterr()
+
+    assert "PROJECT TICKETS:" in captured.out
+    assert "ID        Title" in captured.out
+    assert "t-111111  Subtask Alpha" in captured.out
+    assert "t-222222  Subtask Beta" in captured.out
+
+
+
 def test_add_project_resources_interactive_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     """Verify add_project_resources interactively prompts and saves multiple resources.
 

@@ -307,7 +307,7 @@ class TicketCollection(CollectionModel):
         """Expand dict of tickets into list of tickets models
 
         :param data_tickets: Tickets in the store form
-        :return: List of project models
+        :return: List of ticket models
         """
         tickets = list()
         if not data_tickets:
@@ -365,9 +365,12 @@ class TicketCollection(CollectionModel):
 
         project_tickets = []
 
-        for data_ticket in all_tickets:
-            if data_ticket.project.startswith(pk):
-                project_tickets.append(project_tickets)
+        for ticket in all_tickets:
+            if not ticket.project:
+                continue
+
+            if ticket.project.startswith(pk):
+                project_tickets.append(ticket)
 
         return project_tickets
 

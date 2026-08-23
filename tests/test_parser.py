@@ -177,3 +177,14 @@ class TestParser:
         assert args.command == "ticket"
         assert args.ticket_command == "create"
         assert args.id == "f7a8b9c0"
+
+    def test_parser_ticket_list(self):
+        """Verify parsing 'ticket list' captures ticket and list subcommands.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["ticket", "list"])
+        assert args.command == "ticket"
+        assert args.ticket_command == "list"
+

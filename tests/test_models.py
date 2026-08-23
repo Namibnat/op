@@ -687,6 +687,180 @@ class TestTicketCollection:
         assert saved["project"] == "proj-1234"
         assert saved["due_at"] == "2026-10-15T12:00:00"
 
+    def test_create_ticket_models_none_or_empty(self):
+        """Verify create_ticket_models returns None when data is empty or None.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        assert TicketCollection.create_ticket_models({}) is None
+        assert TicketCollection.create_ticket_models(None) is None
+
+    def test_create_ticket_models_expands_dict_to_models(self):
+        """Verify create_ticket_models expands stored dictionary into Ticket instances.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        data = {
+            "t-1111": {
+                "title": "Fix bracket",
+                "state": "open",
+                "project": "proj-abc",
+                "actionable": True,
+                "context": "workshop",
+                "date_created": "2026-08-20",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-2222": {
+                "title": "Buy bolts",
+                "state": "in_progress",
+                "project": None,
+                "actionable": True,
+                "context": "hardware",
+                "date_created": "2026-08-21",
+                "date_completed": None,
+                "time_bound": True,
+                "due_at": "2026-08-25T17:00:00",
+            },
+        }
+        models = TicketCollection.create_ticket_models(data)
+        assert models is not None
+        assert len(models) == 2
+
+        t1 = next(m for m in models if m.pk == "t-1111")
+        assert t1.title == "Fix bracket"
+        assert t1.project == "proj-abc"
+        assert t1.state == TicketState.OPEN
+
+        t2 = next(m for m in models if m.pk == "t-2222")
+        assert t2.title == "Buy bolts"
+        assert t2.project is None
+        assert t2.state == TicketState.IN_PROGRESS
+        assert t2.time_bound is True
+
+    def test_get_project_tickets_empty(self, isolated_storage_dir: Path):
+        """Verify get_project_tickets returns None when tickets container is empty.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        ticket_col = TicketCollection()
+        assert ticket_col.get_project_tickets("proj-1234") is None
+
+    def test_get_project_tickets_returns_matching_tickets(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_project_tickets returns all tickets matching the project prefix.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {
+                "title": "Mount solar rails",
+                "state": "open",
+                "project": "880e8400-e29b-41d4-a716-446655440000",
+                "actionable": True,
+                "context": "roof",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-2": {
+                "title": "Wire inverter",
+                "state": "in_progress",
+                "project": "880e8400-e29b-41d4-a716-446655440000",
+                "actionable": True,
+                "context": "shed",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-3": {
+                "title": "Paint fence",
+                "state": "open",
+                "project": "990e8400-0000-0000-0000-000000000000",
+                "actionable": True,
+                "context": "garden",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        matched = ticket_col.get_project_tickets("880e8400")
+        assert matched is not None
+        assert len(matched) == 2
+        titles = [t.title for t in matched]
+        assert "Mount solar rails" in titles
+        assert "Wire inverter" in titles
+
+    def test_get_project_tickets_no_matches_returns_empty_list(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_project_tickets returns empty list when tickets exist but none match project.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {
+                "title": "Paint fence",
+                "state": "open",
+                "project": "990e8400-0000-0000-0000-000000000000",
+                "actionable": True,
+                "context": "garden",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        matched = ticket_col.get_project_tickets("880e8400")
+        assert matched == []
+
+    def test_get_project_tickets_ignores_standalone_tickets_without_project(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_project_tickets safely handles tickets where project is None.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-standalone": {
+                "title": "Buy milk",
+                "state": "open",
+                "project": None,
+                "actionable": True,
+                "context": "store",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-proj": {
+                "title": "Solar inspection",
+                "state": "open",
+                "project": "880e8400-e29b-41d4-a716-446655440000",
+                "actionable": True,
+                "context": "site",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        matched = ticket_col.get_project_tickets("880e8400")
+        assert matched is not None
+        assert len(matched) == 1
+        assert matched[0].title == "Solar inspection"
+
 
 class TestRoutinesCollection:
     """Tests for RoutinesCollection model.
