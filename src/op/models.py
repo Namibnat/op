@@ -350,18 +350,32 @@ class TicketCollection(CollectionModel):
 
         return new_ticket_item
 
+    def get_all_tickets(self) -> list[Ticket] | None:
+        """Get all tickets
+
+        :return: List of all tickets
+        """
+        data_tickets = self.read_all(self.container_name)
+        if not data_tickets:
+            return None
+
+        all_tickets = self.create_ticket_models(data_tickets)
+        if not all_tickets:
+            return None
+
+        all_tickets = [t for t in all_tickets if not t.state == TicketState.CANCELLED]
+        return all_tickets
+
+
     def get_project_tickets(self, pk: str) -> List[Ticket] | None:
         """Get all tickets for a project.
 
         :param pk: Project ID
         :return: List of tickets
         """
-        data_tickets = self.read_all(self.container_name)
-
-        if not data_tickets:
+        all_tickets = self.get_all_tickets()
+        if not all_tickets:
             return None
-
-        all_tickets = self.create_ticket_models(data_tickets)
 
         project_tickets = []
 
@@ -370,8 +384,6 @@ class TicketCollection(CollectionModel):
                 continue
 
             if ticket.project.startswith(pk):
-                if ticket.state == TicketState.CANCELLED:
-                    continue
                 project_tickets.append(ticket)
 
         return project_tickets

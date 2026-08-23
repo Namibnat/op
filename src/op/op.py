@@ -695,7 +695,22 @@ def ticket_create_dispatch(args):
 
 
 def list_ticket_items():
-    """List ticket items"""
+    """List ticket items
+
+    Ticket:
+    Status: todo list_ticket_items() in op.py is currently a stub — it prints a header and does nothing.
+    Needs to list all tickets in a scannable table
+    (mirroring the bucket/project list formatting already established:
+    short ID, created date, state, title), sorted newest-first.
+    Should support filtering, at minimum by state and by "actionable now",
+    since that's the primary lens tickets are meant to be worked through (per spec §4.4).
+    Should also support filtering to a single project's tickets (e.g. --project <id>),
+    since per the guiding principle above that's expected to be the more
+    common view than the full flat list — op project show already lists
+    a project's tickets inline, so this gives the same view as its own scoped/filterable command.
+    Project-linked tickets in the unscoped list should still show their parent project's short ID
+    or name inline, since a bare ticket list otherwise loses that context.
+    """
     ticket_interface = TicketCollection()
     all_tickets = None
     print("All tickets:")

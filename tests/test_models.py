@@ -739,6 +739,89 @@ class TestTicketCollection:
         assert t2.state == TicketState.IN_PROGRESS
         assert t2.time_bound is True
 
+    def test_get_all_tickets_empty(self, isolated_storage_dir: Path):
+        """Verify get_all_tickets returns None when tickets container is empty.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        ticket_col = TicketCollection()
+        assert ticket_col.get_all_tickets() is None
+
+    def test_get_all_tickets_populated(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_all_tickets returns all uncancelled tickets.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {
+                "title": "Open ticket",
+                "state": "open",
+                "project": None,
+                "actionable": True,
+                "context": "lab",
+                "date_created": "2026-08-20",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-2": {
+                "title": "In progress ticket",
+                "state": "in_progress",
+                "project": "proj-1",
+                "actionable": True,
+                "context": "office",
+                "date_created": "2026-08-21",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        tickets = ticket_col.get_all_tickets()
+        assert tickets is not None
+        assert len(tickets) == 2
+
+    def test_get_all_tickets_excludes_cancelled(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_all_tickets filters out cancelled tickets.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-active": {
+                "title": "Active ticket",
+                "state": "open",
+                "project": None,
+                "actionable": True,
+                "context": "lab",
+                "date_created": "2026-08-20",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-cancelled": {
+                "title": "Cancelled ticket",
+                "state": "cancelled",
+                "project": None,
+                "actionable": False,
+                "context": "lab",
+                "date_created": "2026-08-20",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        tickets = ticket_col.get_all_tickets()
+        assert tickets is not None
+        assert len(tickets) == 1
+        assert tickets[0].title == "Active ticket"
+
     def test_get_project_tickets_empty(self, isolated_storage_dir: Path):
         """Verify get_project_tickets returns None when tickets container is empty.
 
