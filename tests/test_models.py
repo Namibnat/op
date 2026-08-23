@@ -861,6 +861,71 @@ class TestTicketCollection:
         assert len(matched) == 1
         assert matched[0].title == "Solar inspection"
 
+    def test_get_project_tickets_excludes_cancelled_tickets(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_project_tickets excludes tickets with state CANCELLED.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        proj_id = "880e8400-e29b-41d4-a716-446655440000"
+        sample_base_data["tickets"] = {
+            "t-active": {
+                "title": "Active Subtask",
+                "state": "open",
+                "project": proj_id,
+                "actionable": True,
+                "context": "lab",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-in-prog": {
+                "title": "In Progress Subtask",
+                "state": "in_progress",
+                "project": proj_id,
+                "actionable": True,
+                "context": "lab",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-done": {
+                "title": "Done Subtask",
+                "state": "done",
+                "project": proj_id,
+                "actionable": False,
+                "context": "lab",
+                "date_created": "2026-08-22",
+                "date_completed": "2026-08-23",
+                "time_bound": False,
+                "due_at": None,
+            },
+            "t-cancelled": {
+                "title": "Cancelled Subtask",
+                "state": "cancelled",
+                "project": proj_id,
+                "actionable": False,
+                "context": "lab",
+                "date_created": "2026-08-22",
+                "date_completed": None,
+                "time_bound": False,
+                "due_at": None,
+            },
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        matched = ticket_col.get_project_tickets("880e8400")
+        assert matched is not None
+        assert len(matched) == 3
+        titles = [t.title for t in matched]
+        assert "Active Subtask" in titles
+        assert "In Progress Subtask" in titles
+        assert "Done Subtask" in titles
+        assert "Cancelled Subtask" not in titles
+
 
 class TestRoutinesCollection:
     """Tests for RoutinesCollection model.

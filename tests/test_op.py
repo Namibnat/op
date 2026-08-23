@@ -516,6 +516,17 @@ def test_show_project_by_id_with_tickets(isolated_storage_dir: Path, sample_base
             "title": "Subtask Beta",
             "state": "in_progress",
             "project": project_id,
+            "actionable": False,
+            "context": "office",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+        "t-33333333-2222-3333-4444-555555555555": {
+            "title": "Subtask Gamma Cancelled",
+            "state": "cancelled",
+            "project": project_id,
             "actionable": True,
             "context": "office",
             "date_created": "2026-08-20",
@@ -531,9 +542,11 @@ def test_show_project_by_id_with_tickets(isolated_storage_dir: Path, sample_base
     captured = capsys.readouterr()
 
     assert "PROJECT TICKETS:" in captured.out
-    assert "ID        Title" in captured.out
-    assert "t-111111  Subtask Alpha" in captured.out
-    assert "t-222222  Subtask Beta" in captured.out
+    assert "ID        Actionable  Title" in captured.out
+    assert "t-111111  Y           Subtask Alpha" in captured.out
+    assert "t-222222  N           Subtask Beta" in captured.out
+    assert "Subtask Gamma Cancelled" not in captured.out
+
 
 
 

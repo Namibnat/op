@@ -389,12 +389,14 @@ def show_project_by_id(
         ticket_output_collection = list()
         ticket_output_collection.append(
             '\n\nPROJECT TICKETS:\n--------------------------------------\n'
-            'ID        Title'
+            'ID        Actionable  Title'
         )
         if project_tickets:
             for ticket in project_tickets:
+                actionable_str = "Y" if ticket.actionable else "N"
 
-                ticket_output_collection.append(f"{ticket.pk[:8]}  {ticket.title}\n")
+                ticket_output_collection.append(f"{ticket.pk[:8]}  {actionable_str}  "
+                                                f"         {ticket.title}\n")
             tickets_output = "\n".join(ticket_output_collection)
 
     project_output = f"\nNo project found with an ID starting with {pk.strip()}"

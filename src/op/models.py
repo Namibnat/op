@@ -370,6 +370,8 @@ class TicketCollection(CollectionModel):
                 continue
 
             if ticket.project.startswith(pk):
+                if ticket.state == TicketState.CANCELLED:
+                    continue
                 project_tickets.append(ticket)
 
         return project_tickets
