@@ -179,7 +179,7 @@ class TestParser:
         assert args.id == "f7a8b9c0"
 
     def test_parser_ticket_list(self):
-        """Verify parsing 'ticket list' captures ticket and list subcommands.
+        """Verify parsing 'ticket list' captures ticket and list subcommands with default flags.
 
         # Authored by Antigravity Agent (Gemini 3.7 Flash)
         """
@@ -187,4 +187,39 @@ class TestParser:
         args = parser.parse_args(["ticket", "list"])
         assert args.command == "ticket"
         assert args.ticket_command == "list"
+        assert args.all is False
+        assert args.state is None
+
+    def test_parser_ticket_list_all(self):
+        """Verify parsing 'ticket list --all' sets all flag to True.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["ticket", "list", "--all"])
+        assert args.command == "ticket"
+        assert args.ticket_command == "list"
+        assert args.all is True
+
+    @pytest.mark.parametrize("state_val", ["open", "in_progress", "done"])
+    def test_parser_ticket_list_state(self, state_val: str):
+        """Verify parsing 'ticket list --state <choice>' captures valid state choices.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        args = parser.parse_args(["ticket", "list", "--state", state_val])
+        assert args.command == "ticket"
+        assert args.ticket_command == "list"
+        assert args.state == state_val
+
+    def test_parser_ticket_list_invalid_state_raises(self):
+        """Verify parsing 'ticket list --state <invalid>' exits with parse error.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        parser = build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["ticket", "list", "--state", "invalid_state"])
+
 

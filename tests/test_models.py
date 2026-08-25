@@ -1009,6 +1009,73 @@ class TestTicketCollection:
         assert "Done Subtask" in titles
         assert "Cancelled Subtask" not in titles
 
+    def test_get_tickets_by_state_empty(self, isolated_storage_dir: Path):
+        """Verify get_tickets_by_state returns None when tickets container is empty.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        ticket_col = TicketCollection()
+        assert ticket_col.get_tickets_by_state("open") is None
+
+    def test_get_tickets_by_state_matching(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_tickets_by_state filters and returns only tickets matching the requested state.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {"title": "Open 1", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t-2": {"title": "Open 2", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t-3": {"title": "In Progress 1", "state": "in_progress", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t-4": {"title": "Done 1", "state": "done", "project": None, "actionable": False, "context": "", "date_created": "2026-08-22", "date_completed": "2026-08-23", "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        open_tickets = ticket_col.get_tickets_by_state("open")
+        assert open_tickets is not None
+        assert len(open_tickets) == 2
+        assert {t.title for t in open_tickets} == {"Open 1", "Open 2"}
+
+        in_prog_tickets = ticket_col.get_tickets_by_state("in_progress")
+        assert in_prog_tickets is not None
+        assert len(in_prog_tickets) == 1
+        assert in_prog_tickets[0].title == "In Progress 1"
+
+        done_tickets = ticket_col.get_tickets_by_state("done")
+        assert done_tickets is not None
+        assert len(done_tickets) == 1
+        assert done_tickets[0].title == "Done 1"
+
+    def test_get_tickets_by_state_no_matches_returns_empty_list(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_tickets_by_state returns empty list when tickets exist but none match state.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {"title": "Open 1", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        assert ticket_col.get_tickets_by_state("done") == []
+
+    def test_get_tickets_by_state_excludes_cancelled(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_tickets_by_state does not return cancelled tickets.
+
+        # Authored by Antigravity Agent (Gemini 3.7 Flash)
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {"title": "Open 1", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t-2": {"title": "Cancelled 1", "state": "cancelled", "project": None, "actionable": False, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        assert ticket_col.get_tickets_by_state("cancelled") == []
+
 
 class TestRoutinesCollection:
     """Tests for RoutinesCollection model.

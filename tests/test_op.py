@@ -1028,7 +1028,8 @@ def test_list_ticket_items_empty(isolated_storage_dir: Path, capsys: pytest.Capt
 
     # Authored by Antigravity Agent (Gemini 3.7 Flash)
     """
-    list_ticket_items()
+    args = argparse.Namespace(all=False, state=None)
+    list_ticket_items(args)
     captured = capsys.readouterr()
     assert "No tickets found" in captured.out
 
@@ -1065,16 +1066,57 @@ def test_list_ticket_items_populated(isolated_storage_dir: Path, sample_base_dat
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
 
-    list_ticket_items()
+    args = argparse.Namespace(all=False, state=None)
+    list_ticket_items(args)
     captured = capsys.readouterr()
 
-    assert "TICKETS - 2 projects" in captured.out
+    assert "TICKETS - 2 tickets" in captured.out
     assert "ID:           11112222" in captured.out
     assert "Title:        Alpha ticket" in captured.out
     assert "State:        open" in captured.out
     assert "ID:           99998888" in captured.out
     assert "Title:        Beta ticket" in captured.out
     assert "State:        in_progress" in captured.out
+
+
+def test_list_ticket_items_filtered_by_state(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify list_ticket_items filters results when args.state is provided.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["tickets"] = {
+        "11112222-3333-4444-5555-666677778888": {
+            "title": "Alpha Open",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+        "22223333-4444-5555-6666-777788889999": {
+            "title": "Beta In Progress",
+            "state": "in_progress",
+            "project": None,
+            "actionable": True,
+            "context": "office",
+            "date_created": "2026-08-21",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    args = argparse.Namespace(all=False, state="open")
+    list_ticket_items(args)
+    captured = capsys.readouterr()
+
+    assert "Alpha Open" in captured.out
+    assert "Beta In Progress" not in captured.out
 
 
 def test_main_ticket_list_dispatch(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
@@ -1102,6 +1144,47 @@ def test_main_ticket_list_dispatch(isolated_storage_dir: Path, sample_base_data:
     main()
     captured = capsys.readouterr()
 
-    assert "TICKETS - 1 projects" in captured.out
+    assert "TICKETS - 1 tickets" in captured.out
     assert "Alpha ticket" in captured.out
+
+
+def test_main_ticket_list_with_state_flag(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify main() dispatches 'ticket list --state open' and filters output.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    sample_base_data["tickets"] = {
+        "11112222-3333-4444-5555-666677778888": {
+            "title": "Open Item",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        },
+        "22223333-4444-5555-6666-777788889999": {
+            "title": "Done Item",
+            "state": "done",
+            "project": None,
+            "actionable": False,
+            "context": "office",
+            "date_created": "2026-08-21",
+            "date_completed": "2026-08-22",
+            "time_bound": False,
+            "due_at": None,
+        },
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    monkeypatch.setattr("sys.argv", ["op", "ticket", "list", "--state", "open"])
+    main()
+    captured = capsys.readouterr()
+
+    assert "Open Item" in captured.out
+    assert "Done Item" not in captured.out
+
 

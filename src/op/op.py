@@ -1,5 +1,5 @@
 """Operational planner that runs a text base GTD planner, routine manager and personal logger"""
-
+import argparse
 import datetime
 import os
 import re
@@ -321,8 +321,11 @@ def create_project_by_id(pk: str):
     print(display)
 
 
-def list_project_items(args):
-    """List all projects"""
+def list_project_items(args: argparse.Namespace):
+    """List all projects
+
+    :param args: command line arguments
+    """
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
     title_line_full = create_title_line(terminal_width)
@@ -345,7 +348,6 @@ def list_project_items(args):
     reasonable_item_length = max(10, terminal_width - 40)
 
     bucket_items_string = "\tNo projects"
-    len_all_projects = 0
 
     if all_projects:
         print_lines = list()
@@ -357,7 +359,8 @@ def list_project_items(args):
             print_lines.append(print_line)
 
         bucket_items_string = "\n\t".join(print_lines)
-        len_all_projects = len(all_projects)
+
+    len_all_projects = len(all_projects) if all_projects else 0
 
     display = (
         "\n\n"
@@ -704,13 +707,25 @@ def ticket_create_dispatch(args):
     create_ticket()
 
 
-def list_ticket_items():
+def list_ticket_items(args: argparse.Namespace):
     """List ticket items
 
-
+    :param args: CLI arguments
     """
     ticket_interface = TicketCollection()
-    all_tickets = ticket_interface.get_all_tickets()
+
+    # Filter: by default filter by all
+    ticket_filter = 'all'
+    if args.all:
+        ticket_filter = 'all'
+    elif args.state:
+        ticket_filter = args.state
+
+    if ticket_filter == 'all':
+        all_tickets = ticket_interface.get_all_tickets()
+    else:
+        all_tickets = ticket_interface.get_tickets_by_state(args.state)
+
     if not all_tickets:
         print("No tickets found")
         return
@@ -742,7 +757,7 @@ def list_ticket_items():
         "\n\n"
         f"{title_line_full}"
         "\n\n\n"
-        f" TICKETS - {len_all_tickets} projects"
+        f" TICKETS - {len_all_tickets} tickets"
         f"{item_sep}"
         f"{ticket_items_string}"
         f"{item_sep}"
@@ -789,7 +804,7 @@ def main():
         if args.ticket_command == "create":
             ticket_create_dispatch(args)
         elif args.ticket_command == "list":
-            list_ticket_items()
+            list_ticket_items(args)
 
     # Dashboard
     else:

@@ -388,6 +388,24 @@ class TicketCollection(CollectionModel):
 
         return project_tickets
 
+    def get_tickets_by_state(self, state: str) -> list[Ticket] | None:
+        """Get all tickets for a state
+
+        :param state: State
+        :return: List of tickets
+        """
+        all_tickets = self.get_all_tickets()
+        if not all_tickets:
+            return None
+
+        filtered_tickets = []
+        for ticket in all_tickets:
+            if ticket.state == state:
+                filtered_tickets.append(ticket)
+
+        return filtered_tickets
+
+
 
 class RoutinesCollection(CollectionModel):
     """Routines/Habits Collection"""

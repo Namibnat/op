@@ -92,6 +92,10 @@ op project resource --remove <project-id>   # Delete a resource from a project
 op ticket create <bucket-id>                # Create a one-action ticket out of a bucket
 op ticket create <project-id>               # Create a ticket for a project
 op ticket create                            # Create a one-action ticket directly
+op ticket list                              # List all tickets that have not been cancelled
+op ticket list --state open                 # List all tickets that are open
+op ticket list --state in_progress          # List all tickets that are in progress
+op ticket list --state done                 # List all tickets that are done
 
 ```
 

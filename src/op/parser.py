@@ -58,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     resource_project_parser.add_argument("--remove", type=str)
 
     # ---- Ticket Args ----------------------------
+
     ticket_parser = subparsers.add_parser('ticket')
     ticket_subparsers = ticket_parser.add_subparsers(
         dest="ticket_command"
@@ -65,6 +66,14 @@ def build_parser() -> argparse.ArgumentParser:
     create_ticket_parser = ticket_subparsers.add_parser("create")
     create_ticket_parser.add_argument("id", nargs="?", type=str)
 
-    ticket_subparsers.add_parser("list")
+    list_ticket_parser = ticket_subparsers.add_parser("list")
+    list_ticket_parser.add_argument(
+        "--state",
+        choices=["open", "in_progress", "done"],
+    )
+    list_ticket_parser.add_argument(
+        "--all",
+        action="store_true",
+    )
 
     return parser
