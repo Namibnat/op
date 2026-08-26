@@ -622,8 +622,6 @@ def create_ticket(pk: str | None = None, is_project: bool = False) -> bool:
     """
     ticket_interface = TicketCollection()
 
-    # TODO: SHOW NEEDED DETAILS OF BUCKET OR PROJECT....
-
     print("Enter ticket details:\n")
     title = input("Title: ")
     print("Ticket state options:\n - 1. in progress\n - or hit enter")
@@ -679,6 +677,7 @@ def create_ticket(pk: str | None = None, is_project: bool = False) -> bool:
     )
 
     ticket_interface.create(new_ticket_item)
+    print("Ticket created")
     return True
 
 
