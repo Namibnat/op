@@ -1,14 +1,19 @@
 """Operational planner that runs a text base GTD planner, routine manager and personal logger"""
 import argparse
 import datetime
-import os
 import re
 import shutil
+from typing import Any, Callable
 
 from op.models import BucketCollection, ProjectCollection, TicketCollection, RoutinesCollection
 from op.parser import build_parser
 from op.schema import ProjectState, Project, ProjectResource, TicketState, Ticket
 from op.config import ID_DISPLAY_LENGTH
+
+
+def console_clear():
+    """Clear console"""
+    print("\033[2J\033[H", end="")
 
 
 def date_string() -> str:
@@ -53,6 +58,30 @@ def create_title_line(terminal_width: int) -> str:
     return title_line_full
 
 
+def create_type_item_str(
+        items: list[Any],
+        item_length: int,
+        get_label: Callable[[Any], str] = lambda x: getattr(x, "item", getattr(x, "name", ""))
+) -> str:
+    """Create the type item string for printing
+
+    :param items: The type of item
+    :param item_length: The length of the item
+    :param get_label: Function to get label
+    :return: Type item string
+    """
+    print_lines = list()
+    for item in items:
+        created_date = item.date_created
+        name = get_label(item)
+        primary_key = output_id_string(item.pk)
+        print_line = f"{primary_key}  {created_date}  {name[:item_length]}"
+        print_lines.append(print_line)
+
+    type_items_string = "\n\t".join(print_lines)
+    return type_items_string
+
+
 def print_dashboard(dashboard_data: dict):
     """Print the dashboard
 
@@ -63,10 +92,10 @@ def print_dashboard(dashboard_data: dict):
     title_line_full = create_title_line(terminal_width)
 
     # Dashboard Data
-    num_of_buckets = dashboard_data.get('num_buckets')
-    num_of_active_projects = dashboard_data.get('active_projects')
-    num_of_active_tickets = dashboard_data.get('active_tickets')
-    num_of_active_routines = dashboard_data.get('active_habits')
+    num_of_buckets = dashboard_data.get('num_buckets') or '0'
+    num_of_active_projects = dashboard_data.get('active_projects') or '0'
+    num_of_active_tickets = dashboard_data.get('active_tickets') or '0'
+    num_of_active_routines = dashboard_data.get('active_habits') or '0'
 
     dashboard = (
         "\n\n"
@@ -160,15 +189,10 @@ def list_bucket_items():
     num_buckets = 0
 
     if all_buckets:
-        print_lines = list()
-        for bucket in all_buckets:
-            created_date = bucket.date_created
-            item = bucket.item
-            primary_key = output_id_string(bucket.pk)
-            print_line = f"{primary_key}  {created_date}  {item[:reasonable_item_length]}"
-            print_lines.append(print_line)
-
-        bucket_items_string = "\n\t".join(print_lines)
+        bucket_items_string = create_type_item_str(
+            items=all_buckets,
+            item_length=reasonable_item_length
+        )
         num_buckets = len(all_buckets)
 
     display = (
@@ -297,7 +321,7 @@ def create_project_by_id(pk: str):
     project_interface = ProjectCollection()
     new_project = project_interface.create(new_project_item)
 
-    os.system('clear')
+    console_clear()
     show_bucket_item_by_id(pk)
 
     bucket_interface = BucketCollection()
@@ -347,18 +371,13 @@ def list_project_items(args: argparse.Namespace):
     # The first part is 22 characters, and add some space at the end of the line
     reasonable_item_length = max(10, terminal_width - 40)
 
-    bucket_items_string = "\tNo projects"
+    project_items_string = "\tNo projects"
 
     if all_projects:
-        print_lines = list()
-        for project in all_projects:
-            created_date = project.date_created
-            name = project.name
-            primary_key = output_id_string(project.pk)
-            print_line = f"{primary_key}  {created_date}  {name[:reasonable_item_length]}"
-            print_lines.append(print_line)
-
-        bucket_items_string = "\n\t".join(print_lines)
+        project_items_string = create_type_item_str(
+            items=all_projects,
+            item_length=reasonable_item_length
+        )
 
     len_all_projects = len(all_projects) if all_projects else 0
 
@@ -368,7 +387,7 @@ def list_project_items(args: argparse.Namespace):
         "\n\n\n"
         f" PROJECTS - {len_all_projects} projects"
         f"{item_sep}"
-        f"\t{bucket_items_string}"
+        f"\t{project_items_string}"
         f"{item_sep}"
     )
     print(display)
@@ -507,7 +526,7 @@ def set_project_by_id(pk: str):
     state: ProjectState = states[choice_value - 1]
     project_interface.set_project_state(pk, state)
 
-    os.system('clear')
+    console_clear()
     # Display it after update
     show_project_by_id(pk, state_update=True)
 
@@ -552,7 +571,7 @@ def add_project_resources(pk):
         print("No resources added")
         return
 
-    os.system('clear')
+    console_clear()
     show_project_by_id(project.pk)
 
 
@@ -770,7 +789,7 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    os.system('clear')
+    console_clear()
 
     # Bucket related actions
     if args.command == "bucket":

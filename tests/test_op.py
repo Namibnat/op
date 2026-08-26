@@ -13,6 +13,8 @@ import pytest
 import op
 from op.op import (
     date_string,
+    console_clear,
+    create_type_item_str,
     get_dashboard_data,
     add_new_bucket_item,
     list_bucket_items,
@@ -33,6 +35,7 @@ from op.op import (
     main,
 )
 from op.models import BucketCollection, ProjectCollection, TicketCollection
+from op.schema import Bucket, Project, ProjectState
 
 
 def test_package_import():
@@ -77,6 +80,69 @@ def test_output_id_string_empty_raises_value_error():
     """
     with pytest.raises(ValueError, match="ID string cannot be empty"):
         output_id_string("")
+
+
+def test_console_clear(capsys: pytest.CaptureFixture):
+    """Verify console_clear outputs the terminal clear escape sequence.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    console_clear()
+    captured = capsys.readouterr()
+    assert captured.out == "\033[2J\033[H"
+
+
+def test_create_type_item_str_empty():
+    """Verify create_type_item_str returns empty string when items list is empty.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    assert create_type_item_str(items=[], item_length=20) == ""
+
+
+def test_create_type_item_str_bucket_items():
+    """Verify create_type_item_str formats Bucket objects using .item attribute.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    bucket1 = Bucket(pk="b1234567-xxxx", item="Buy groceries", date_created=datetime.date(2026, 8, 20))
+    bucket2 = Bucket(pk="b2234567-yyyy", item="Clean desk", date_created=datetime.date(2026, 8, 21))
+    result = create_type_item_str(items=[bucket1, bucket2], item_length=20)
+    lines = result.split("\n\t")
+    assert len(lines) == 2
+    assert lines[0] == "b1234567  2026-08-20  Buy groceries"
+    assert lines[1] == "b2234567  2026-08-21  Clean desk"
+
+
+def test_create_type_item_str_project_items():
+    """Verify create_type_item_str formats Project objects using .name attribute.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    proj = Project(
+        pk="p1234567-zzzz",
+        name="OP Project Development",
+        spec="Build GTD planner",
+        state=ProjectState.ACTIVE,
+        done_when="v1.0 released",
+        date_created=datetime.date(2026, 8, 15),
+    )
+    result = create_type_item_str(items=[proj], item_length=15)
+    assert result == "p1234567  2026-08-15  OP Project Deve"
+
+
+def test_create_type_item_str_custom_label():
+    """Verify create_type_item_str respects custom get_label callable.
+
+    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    """
+    bucket = Bucket(pk="b1234567-xxxx", item="Buy groceries", date_created=datetime.date(2026, 8, 20))
+    result = create_type_item_str(
+        items=[bucket],
+        item_length=30,
+        get_label=lambda x: f"CUSTOM: {x.item}"
+    )
+    assert result == "b1234567  2026-08-20  CUSTOM: Buy groceries"
 
 
 def test_get_dashboard_data_empty(isolated_storage_dir: Path):
