@@ -75,5 +75,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--all",
         action="store_true",
     )
+    list_ticket_parser.add_argument(
+        "-a", "--actionable",
+        action="store_true",
+    )
 
     return parser

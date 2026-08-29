@@ -738,6 +738,8 @@ def list_ticket_items(args: argparse.Namespace):
         ticket_filter = 'all'
     elif args.state:
         ticket_filter = args.state
+    else:
+        ticket_filter = 'in_progress'
 
     if ticket_filter == 'all':
         all_tickets = ticket_interface.get_all_tickets()

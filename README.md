@@ -86,16 +86,20 @@ op project resource --remove <project-id>   # Delete a resource from a project
 # Tickets | For GTD, think 'actions'
 
 # Unlike GTD, a project might have multiple tickets that can be actioned next
-# Tickets can belong to a project or simply stand-alone
+# Tickets can belong to a project or simply stand-alone.
+# Cancelled tickets are never shown in ticket list, but are still kept (maybe for reflection)
 
 # -- Ticket Workflow
 op ticket create <bucket-id>                # Create a one-action ticket out of a bucket
 op ticket create <project-id>               # Create a ticket for a project
 op ticket create                            # Create a one-action ticket directly
-op ticket list                              # List all tickets that have not been cancelled
+op ticket list                              # List all tickets that are actionable
+op ticket list --state all                  # List all tickets that have not been cancelled
 op ticket list --state open                 # List all tickets that are open
 op ticket list --state in_progress          # List all tickets that are in progress
 op ticket list --state done                 # List all tickets that are done
+# Listing all done tickets will be a lot, and probably more useful for reviews, suggest piping to a file:
+op ticket list --state done > /path/to/output.txt
 
 ```
 
