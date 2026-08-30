@@ -102,6 +102,7 @@ op ticket list --state done                 # List all tickets that are done
 op ticket show <ticket-id>                  # Show a ticket's details
 # Listing all done tickets will be a lot, and probably more useful for reviews, suggest piping to a file:
 op ticket list --state done > /path/to/output.txt
+op ticket set                               # Set prompts the user to change state or actionability of the ticket
 
 ```
 

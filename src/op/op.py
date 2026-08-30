@@ -791,10 +791,16 @@ def list_ticket_items(args: argparse.Namespace):
     print(display)
 
 
-def show_ticket_by_id(pk: str):
+def show_ticket_by_id(
+        pk: str,
+        state_update: bool = False,
+        actionable_updated: bool = False,
+):
     """Show ticket by id
 
     :param pk: Ticket ID
+    :param state_update: True if the state was updated
+    :param actionable_updated: True if the actionable was updated
     """
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
@@ -836,7 +842,11 @@ def show_ticket_by_id(pk: str):
         ticket_created_line = f"[Created: {ticket_created}]"
         ticket_title_line = f"\nTitle: {ticket_title}"
         ticket_state_line = f"State: [{ticket_state}]"
+        if state_update:
+            ticket_state_line = f"Updated State: [{ticket_state}]"
         ticket_actionable_line = f"Actionable: {ticket_actionable_output}"
+        if actionable_updated:
+            ticket_actionable_line = f"Updated Actionable: {ticket_actionable_output}"
         ticket_project_line = f"Project: {ticket_project_output}"
         ticket_context_line = f"Context: {ticket_context_output}"
         ticket_due_line = f"Due: {ticket_due}"
@@ -867,6 +877,64 @@ def show_ticket_by_id(pk: str):
         f"{item_sep}"
     )
     print(display)
+
+
+def set_ticket_by_id(pk: str):
+    """Set ticket by id.
+
+    Set:
+        - State - Choose what state to set the ticket to
+        - Actionable - Toggle actionable
+
+    :param pk: Ticket ID
+    """
+    state_updated = False
+    actionable_updated = False
+    ticket_interface = TicketCollection()
+
+
+    # Show the ticket
+    show_ticket_by_id(pk.strip())
+
+    ticket = ticket_interface.get_ticket(pk.strip())
+    if not ticket:
+        return
+
+    print("\nChoose the option to set (enter the number)\n\n")
+
+    states = list(TicketState.__members__.values())
+
+    for index, possible_state in enumerate(states, start=1):
+        print(f" - {index}. {possible_state}")
+
+    actionable_index = len(states) + 1
+    ticket_actionable = ticket.actionable
+    if ticket_actionable:
+        print(f" - {actionable_index}. Set as not actionable\n")
+    else:
+        print(f" - {actionable_index}. Set as actionable\n")
+
+    choice = input("% ")
+    choice = choice.strip()
+    if not choice.isdigit() or int(choice) not in range(1, actionable_index + 1):
+        print(f"Invalid choice {choice}, try again")
+        return
+    if int(choice) < actionable_index:
+        state_choice = states[int(choice) - 1]
+        ticket_interface.set_ticket_state(ticket.pk, state_choice)
+        state_updated = True
+    else:
+        is_actionable = not ticket.actionable
+        ticket_interface.set_ticket_actionable(ticket.pk, is_actionable)
+        actionable_updated = True
+
+    console_clear()
+    # Display it after update
+    show_ticket_by_id(
+        pk=pk.strip(),
+        state_update=False,
+        actionable_updated=False,
+    )
 
 
 def main():
@@ -911,6 +979,8 @@ def main():
             list_ticket_items(args)
         elif args.ticket_command == "show":
             show_ticket_by_id(args.id)
+        elif args.ticket_command == "set":
+            set_ticket_by_id(args.id)
         else:
             list_ticket_items(args)
 

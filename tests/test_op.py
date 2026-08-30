@@ -36,7 +36,7 @@ from op.op import (
     main,
 )
 from op.models import BucketCollection, ProjectCollection, TicketCollection
-from op.schema import Bucket, Project, ProjectState
+from op.schema import Bucket, Project, ProjectState, TicketState
 
 # T-102 (`op ticket show <id>`) is prepared test-first (spec §5): the handler
 # does not exist yet. Guard the import so the rest of this file still collects;
@@ -45,6 +45,13 @@ try:  # pragma: no cover - import shim for the test-first window
     from op.op import show_ticket_by_id
 except ImportError:  # noqa: F401 - resolved once T-102 lands
     show_ticket_by_id = None
+
+# T-103 (`op ticket set`) — same test-first import shim; the T-103 tests assert
+# the symbol is present before exercising it.
+try:  # pragma: no cover - import shim for the test-first window
+    from op.op import set_ticket_by_id
+except ImportError:  # noqa: F401 - resolved once T-103 lands
+    set_ticket_by_id = None
 
 
 def test_package_import():
@@ -1801,5 +1808,217 @@ def test_main_ticket_show_dispatch(isolated_storage_dir: Path, sample_base_data:
 
     assert "Routed ticket" in out
     _has(out, "State: [open]")
+
+
+# ---------------------------------------------------------------------------
+# T-103 — `op ticket set <id>` (state + actionable; folds in T-104)
+#
+# Locked decisions (docs/dev_tickets.md, T-103, groomed 2026-08-30):
+#   * Lookup via TicketCollection.get_ticket(pk.strip()) — a cancelled ticket
+#     hits the standard not-found line in the " TICKET" frame, no change.
+#   * Show the ticket first (re-uses show_ticket_by_id); stop if not found.
+#   * ONE combined numbered menu (user-confirmed 2026-08-30): options 1-4 = the
+#     four TicketState values, option 5 = a self-describing actionable toggle
+#     ("Set as not actionable" when currently actionable, "Set as actionable"
+#     when not — shown for EVERY ticket, standalone included). Single "% "
+#     prompt, validate 1..5, invalid -> one-line "Invalid choice" + return.
+#   * EXACTLY ONE change per invocation: 1-4 -> set_ticket_state; 5 ->
+#     set_ticket_actionable(not ticket.actionable). Never both in one run.
+#   * console_clear(), re-show.
+#   * No transition guardrails (any state -> any state), no note on cancel.
+#
+# Prepared test-first (spec §5). Handler expected: op.op.set_ticket_by_id
+# (mirrors set_project_by_id). Import is guarded above.
+#
+# Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+# License: MIT
+# ---------------------------------------------------------------------------
+
+
+def _set_ticket(pk: str):
+    """Call the T-103 handler, failing clearly if it is not implemented yet.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    """
+    assert set_ticket_by_id is not None, (
+        "T-103 not implemented: op.op.set_ticket_by_id is missing"
+    )
+    return set_ticket_by_id(pk)
+
+
+def _ticket_store(pk: str, *, state="open", project=None, actionable=True):
+    """One stored-form ticket dict for the set_ticket_by_id tests.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    """
+    return {
+        pk: {
+            "title": "Ticket to change",
+            "state": state,
+            "project": project,
+            "actionable": actionable,
+            "context": "lab",
+            "date_created": "2026-08-10",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+
+
+def test_set_ticket_by_id_not_found_no_prompt(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify an unknown id prints the not-found line and never prompts.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    # License: MIT
+    """
+    def _no_input(prompt=""):
+        raise AssertionError("set_ticket_by_id prompted for a missing ticket")
+
+    monkeypatch.setattr("builtins.input", _no_input)
+
+    _set_ticket("99999999")
+    out = capsys.readouterr().out
+
+    assert "No ticket found with an ID starting with 99999999" in out
+
+
+def test_set_ticket_by_id_valid_choice_updates_and_reshows(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify a valid menu choice changes state, stamps completion, and re-shows.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    # License: MIT
+    """
+    pk = "11112222-3333-4444-5555-666677778888"
+    sample_base_data["tickets"] = _ticket_store(pk)  # standalone, open
+    _write(isolated_storage_dir, sample_base_data)
+
+    # Combined menu: 1 open / 2 in_progress / 3 done / 4 cancelled / 5 toggle
+    # actionable. Exactly one change per run -> choose done.
+    inputs = iter(["3"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _set_ticket("11112222")
+    out = capsys.readouterr().out
+
+    stored = TicketCollection().get_ticket("11112222")
+    assert stored is not None
+    assert stored.state == TicketState.DONE
+    assert stored.date_completed == datetime.date.today()
+
+    # Re-shown after the change.
+    assert "State: [done]" in out
+
+
+def test_set_ticket_by_id_menu_option_five_toggles_actionable(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify menu option 5 toggles `actionable` only, leaving state untouched.
+
+    Combined single-menu design (user-confirmed 2026-08-30): options 1-4 are the
+    TicketState values, option 5 is the self-describing actionable toggle, and
+    exactly one change happens per run.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    # License: MIT
+    """
+    project_id = "aabbccdd-1111-2222-3333-444455556666"
+    pk = "99998888-7777-6666-5555-444433332222"
+    sample_base_data["projects"] = {
+        project_id: {
+            "name": "Solar Battery Setup", "spec": "s", "state": "active",
+            "done_when": "d", "date_created": "2026-08-01", "resources": {},
+        }
+    }
+    sample_base_data["tickets"] = _ticket_store(pk, project=project_id, actionable=True)
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["5"])  # option 5 -> toggle actionable
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _set_ticket("99998888")
+    out = capsys.readouterr().out
+
+    stored = TicketCollection().get_ticket("99998888")
+    assert stored is not None
+    assert stored.actionable is False        # toggled from True
+    assert stored.state == TicketState.OPEN  # state unchanged
+
+    # Menu renders the four states plus the self-describing option 5.
+    _has(out, "4. cancelled")
+    _has(out, "5. Set as not actionable")
+
+
+def test_set_ticket_by_id_standalone_also_offers_actionable_toggle(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify a standalone ticket also gets menu option 5, with the reverse label.
+
+    `actionable` is a universal user flag, not project-only (spec §4.4, user
+    2026-08-30), so option 5 is offered for every ticket. This one starts
+    non-actionable, so the label reads "Set as actionable".
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    # License: MIT
+    """
+    pk = "22223333-4444-5555-6666-777788889999"
+    sample_base_data["tickets"] = _ticket_store(pk, project=None, actionable=False)
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["5"])  # option 5 -> toggle actionable
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _set_ticket("22223333")
+    out = capsys.readouterr().out
+
+    stored = TicketCollection().get_ticket("22223333")
+    assert stored is not None
+    assert stored.actionable is True         # toggled from False
+    assert stored.state == TicketState.OPEN  # state unchanged
+
+    _has(out, "5. Set as actionable")
+
+
+def test_set_ticket_by_id_invalid_choice_no_change(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify an out-of-range menu choice prints 'Invalid choice' and changes nothing.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    # License: MIT
+    """
+    pk = "33334444-5555-6666-7777-888899990000"
+    sample_base_data["tickets"] = _ticket_store(pk, state="open")
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["9"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _set_ticket("33334444")
+    out = capsys.readouterr().out
+
+    assert "Invalid choice" in out
+    stored = TicketCollection().get_ticket("33334444")
+    assert stored is not None
+    assert stored.state == TicketState.OPEN
+
+
+def test_main_ticket_set_dispatch(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify `op ticket set <id>` routes through main() to set_ticket_by_id.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+    # License: MIT
+    """
+    assert set_ticket_by_id is not None, (
+        "T-103 not implemented: op.op.set_ticket_by_id is missing"
+    )
+    pk = "dddd1111-2222-3333-4444-555566667777"
+    sample_base_data["tickets"] = _ticket_store(pk, state="open")
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["2"])  # menu option 2 -> in_progress
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr("sys.argv", ["op", "ticket", "set", "dddd1111"])
+    main()
+    out = capsys.readouterr().out
+
+    stored = TicketCollection().get_ticket("dddd1111")
+    assert stored is not None
+    assert stored.state == TicketState.IN_PROGRESS
+    assert "State: [in_progress]" in out
 
 

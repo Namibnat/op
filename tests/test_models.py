@@ -1263,6 +1263,167 @@ class TestTicketCollection:
         assert ticket.pk == first_id
         assert ticket.title == "First inserted"
 
+    # -- set_ticket_state / set_ticket_actionable (T-103 — folds T-104) ----
+    # First ticket mutation surface: change state and (for project-linked
+    # tickets) the actionable flag after creation. get_ticket lookup, so a
+    # cancelled ticket is unreachable. -> done stamps date_completed = today;
+    # out of done clears it. Prepared test-first for the human impl (spec §5).
+
+    def _one_open_ticket(self, isolated_storage_dir: Path, sample_base_data: dict,
+                         pk: str, *, project=None, actionable=True,
+                         state="open", date_completed=None) -> None:
+        """Persist a single ticket for the mutation tests.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        """
+        sample_base_data["tickets"] = {
+            pk: {
+                "title": "Mutable ticket",
+                "state": state,
+                "project": project,
+                "actionable": actionable,
+                "context": "lab",
+                "date_created": "2026-08-10",
+                "date_completed": date_completed,
+                "time_bound": False,
+                "due_at": None,
+            }
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+    @pytest.mark.parametrize("target", [
+        TicketState.OPEN, TicketState.IN_PROGRESS, TicketState.DONE, TicketState.CANCELLED,
+    ])
+    def test_set_ticket_state_to_each_target(self, target, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify set_ticket_state moves an open ticket to any target state (no guardrails).
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        pk = "aaaa1111-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk)
+
+        ticket_col = TicketCollection()
+        updated = ticket_col.set_ticket_state("aaaa1111", target)
+        assert updated is not None
+        assert updated.state == target
+
+        # Persisted (a cancelled target is not re-readable, so check raw store).
+        raw = TicketCollection().read_all("tickets")
+        assert raw[pk]["state"] == target.value
+
+    def test_set_ticket_state_to_done_sets_date_completed(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a transition to done stamps date_completed with today's date.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        pk = "bbbb2222-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk)
+
+        updated = TicketCollection().set_ticket_state("bbbb2222", TicketState.DONE)
+        assert updated is not None
+        assert updated.date_completed == datetime.date.today()
+
+        reread = TicketCollection().get_ticket("bbbb2222")
+        assert reread is not None
+        assert reread.date_completed == datetime.date.today()
+
+    @pytest.mark.parametrize("target", [TicketState.OPEN, TicketState.IN_PROGRESS, TicketState.CANCELLED])
+    def test_set_ticket_state_out_of_done_clears_date_completed(self, target, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify moving a done ticket to any other state resets date_completed to None.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        pk = "cccc3333-0000-0000-0000-000000000000"
+        self._one_open_ticket(
+            isolated_storage_dir, sample_base_data, pk,
+            state="done", date_completed="2026-08-15",
+        )
+
+        updated = TicketCollection().set_ticket_state("cccc3333", target)
+        assert updated is not None
+        assert updated.state == target
+        assert updated.date_completed is None
+
+        raw = TicketCollection().read_all("tickets")
+        assert raw[pk]["date_completed"] is None
+
+    def test_set_ticket_state_not_found_returns_none(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify set_ticket_state returns None for an unknown id.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        self._one_open_ticket(
+            isolated_storage_dir, sample_base_data,
+            "dddd4444-0000-0000-0000-000000000000",
+        )
+        assert TicketCollection().set_ticket_state("nomatch9", TicketState.DONE) is None
+
+    def test_set_ticket_state_cancelled_ticket_returns_none(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a cancelled ticket's id is unreachable via set_ticket_state.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        pk = "eeee5555-0000-0000-0000-000000000000"
+        self._one_open_ticket(
+            isolated_storage_dir, sample_base_data, pk, state="cancelled",
+        )
+        assert TicketCollection().set_ticket_state("eeee5555", TicketState.OPEN) is None
+
+    def test_set_ticket_actionable_flips_both_ways(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify set_ticket_actionable sets the flag True and False and persists each.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        pk = "ffff6666-0000-0000-0000-000000000000"
+        self._one_open_ticket(
+            isolated_storage_dir, sample_base_data, pk,
+            project="proj-1234", actionable=True,
+        )
+
+        off = TicketCollection().set_ticket_actionable("ffff6666", False)
+        assert off is not None
+        assert off.actionable is False
+        assert TicketCollection().get_ticket("ffff6666").actionable is False
+
+        on = TicketCollection().set_ticket_actionable("ffff6666", True)
+        assert on is not None
+        assert on.actionable is True
+        assert TicketCollection().get_ticket("ffff6666").actionable is True
+
+    def test_set_ticket_actionable_not_found_returns_none(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify set_ticket_actionable returns None for an unknown id.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        self._one_open_ticket(
+            isolated_storage_dir, sample_base_data,
+            "17771777-0000-0000-0000-000000000000", project="proj-1",
+        )
+        assert TicketCollection().set_ticket_actionable("nomatch9", True) is None
+
+    def test_set_ticket_state_persists_across_fresh_collection(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a state change is readable from a brand-new TicketCollection().
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        pk = "28882888-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk)
+
+        TicketCollection().set_ticket_state("28882888", TicketState.IN_PROGRESS)
+
+        reread = TicketCollection().get_ticket("28882888")
+        assert reread is not None
+        assert reread.state == TicketState.IN_PROGRESS
+
 
 class TestRoutinesCollection:
     """Tests for RoutinesCollection model.

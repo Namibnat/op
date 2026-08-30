@@ -246,4 +246,28 @@ class TestParser:
         with pytest.raises(SystemExit):
             parser.parse_args(["ticket", "show"])
 
+    def test_parser_ticket_set(self):
+        """Verify parsing 'ticket set <id>' captures ticket, set, and id argument.
+
+        Prepared test-first for T-103 (spec §5).
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        parser = build_parser()
+        args = parser.parse_args(["ticket", "set", "b2c3d4e5"])
+        assert args.command == "ticket"
+        assert args.ticket_command == "set"
+        assert args.id == "b2c3d4e5"
+
+    def test_parser_ticket_set_missing_id_raises(self):
+        """Verify parsing 'ticket set' with no positional id exits with a parse error.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
+        # License: MIT
+        """
+        parser = build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["ticket", "set"])
+
 

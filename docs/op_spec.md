@@ -132,6 +132,28 @@ Individual executable steps. Diverging from strict single-next-action GTD, a pro
 - **Validation Rules**:
   - `time_bound` is automatically inferred as `True` if `due_at` is set.
   - If `time_bound=True`, a valid `due_at` must be supplied.
+- **`actionable` — the "could I take this on now?" flag**: A user-controlled
+  attention/capacity signal, **not** a dependency or blocking state. `actionable
+  = True` means the user judges this is something they could realistically pick
+  up given their *current* workload and headspace; `actionable = False` means
+  "not now" for *any* reason at all — blocked by another ticket, waiting on
+  someone else, low priority, or simply no bandwidth yet (e.g. a video worth
+  watching that isn't important enough to act on today but also isn't a *parked*
+  someday/maybe item).
+  - Applies identically to **standalone and project-linked** tickets. With
+    potentially hundreds of open tickets, this flag is the primary way the user
+    keeps the working set down to what they can actually engage with.
+  - **Independent of `state`.** An `open` ticket can be non-actionable; an
+    `in_progress` ticket is normally actionable. Changing one never implies a
+    change to the other.
+  - New tickets default to `actionable = True`. `op ticket set` toggles it on
+    **any** ticket, at any time.
+  - The default `op ticket list` view (and the dashboard's priority tickets)
+    show only `actionable = True` tickets, so non-actionable ones stay out of
+    sight until the user promotes them. `--all` / `--state` reveal the rest.
+  - *(Context, non-normative: in the author's wider setup an actionable ticket
+    is also what syncs out to an external task list such as Google Tasks. OP
+    itself does not implement that — it only owns the flag.)*
 - **Cancelled Tickets**: Per the *Cancelled Means Gone* principle (§1), a
   `cancelled` ticket is invisible to the entire OP interface. All ticket
   retrieval — list, single-ticket lookup/`show`, project ticket rollups, active

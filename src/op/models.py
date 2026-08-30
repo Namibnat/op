@@ -323,6 +323,18 @@ class TicketCollection(CollectionModel):
             )
         return tickets
 
+    def _save_data_with_ticket(self, ticket: Ticket):
+        """Add ticket to store format and save data
+
+        :param ticket: The ticket to save
+        """
+        data_project = ticket.model_dump(
+            mode="json",
+            exclude={"pk": True, 'resources': {"__all__": {"pk": True}}}
+        )
+        self.data[self.container_name][ticket.pk] = data_project
+        self.save_data()
+
     def count_active_tickets(self) -> int:
         """Count active tickets
 
@@ -434,6 +446,48 @@ class TicketCollection(CollectionModel):
                 filtered_tickets.append(ticket)
         return filtered_tickets
 
+    def set_ticket_state(self, pk: str, state: TicketState) -> Ticket | None:
+        """Set state for a ticket.
+
+        :param pk: Ticket ID
+        :param state: State
+        """
+        ticket = self.get_ticket(pk)
+        if not isinstance(ticket, Ticket):
+            return None
+
+        if ticket.state == state:
+            return ticket
+
+        # If switching from "done", completed also needs to be reset.
+        if ticket.state == TicketState.DONE:
+            ticket.date_completed = None
+
+        ticket.state = state
+
+        if ticket.state == TicketState.DONE:
+            ticket.date_completed = datetime.date.today()
+
+        self._save_data_with_ticket(ticket)
+        return ticket
+
+    def set_ticket_actionable(self, pk: str, actionable: bool) -> Ticket | None:
+        """Set actionable state for a ticket.
+
+        :param pk: Ticket ID
+        :param actionable: Actionable
+        """
+        ticket = self.get_ticket(pk)
+        if not isinstance(ticket, Ticket):
+            return None
+
+        if ticket.actionable == actionable:
+            return ticket
+
+        ticket.actionable = actionable
+        self._save_data_with_ticket(ticket)
+
+        return ticket
 
 
 class RoutinesCollection(CollectionModel):
