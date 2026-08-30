@@ -68,7 +68,7 @@ class Ticket(BaseModel):
     project: str | None = None
     actionable: bool = True
     context: str = ""
-    date_created: date= Field(default_factory=date.today)
+    date_created: date = Field(default_factory=date.today)
     date_completed: date | None = None
     time_bound: bool = False
     due_at: datetime | None = None

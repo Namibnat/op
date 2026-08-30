@@ -1,4 +1,5 @@
 """Operational planner that runs a text base GTD planner, routine manager and personal logger"""
+
 import argparse
 import datetime
 import re
@@ -765,7 +766,7 @@ def list_ticket_items(args: argparse.Namespace):
     # The first part is 22 characters, and add some space at the end of the line
     reasonable_item_length = max(10, terminal_width - 40)
 
-    ticket_items_string = "\tNo tickets found"
+    ticket_items_string = "No tickets found"
 
     def get_title(item):
         return item.title
@@ -784,7 +785,7 @@ def list_ticket_items(args: argparse.Namespace):
         "\n\n\n"
         f" TICKETS - {len_all_tickets} tickets"
         f"{item_sep}"
-        f"{ticket_items_string}"
+        f"\t{ticket_items_string}"
         f"{item_sep}"
     )
     print(display)
@@ -795,7 +796,77 @@ def show_ticket_by_id(pk: str):
 
     :param pk: Ticket ID
     """
-    pass
+    terminal_width = shutil.get_terminal_size().columns
+    item_sep = create_item_seperator(terminal_width)
+    title_line_full = create_title_line(terminal_width)
+
+    ticket_interface = TicketCollection()
+    project_interface = ProjectCollection()
+    ticket = ticket_interface.get_ticket(pk.strip())
+
+    ticket_output_line = f"\nNo ticket found with an ID starting with {pk.strip()}"
+
+    if ticket:
+        ticket_id = ticket.pk
+        ticket_output_line = output_id_string(ticket_id)
+        ticket_created = ticket.date_created
+        ticket_title = ticket.title
+        ticket_state = ticket.state
+        ticket_actionable = ticket.actionable
+        ticket_actionable_output = "Yes" if ticket_actionable else "No"
+
+        ticket_project_output = "— (standalone)"
+        ticket_project = ticket.project
+        if ticket_project:
+            project = project_interface.get_project(ticket_project)
+            if project:
+                project_id = output_id_string(project.pk)
+                project_name = project.name
+                ticket_project_output = f"{project_id}  {project_name}"
+            else:
+                ticket_project_output = f"{ticket_project} (project not found)"
+
+        ticket_context = ticket.context
+        ticket_context_output = ticket_context if ticket_context.strip() else " —"
+
+        ticket_due = ticket.due_at if (ticket.time_bound and ticket.due_at) else " — (not time-bound)"
+        ticket_completed = ticket.date_completed if ticket.date_completed else " —"
+
+        ticket_id_line = f"ID: {ticket_output_line}"
+        ticket_created_line = f"[Created: {ticket_created}]"
+        ticket_title_line = f"\nTitle: {ticket_title}"
+        ticket_state_line = f"State: [{ticket_state}]"
+        ticket_actionable_line = f"Actionable: {ticket_actionable_output}"
+        ticket_project_line = f"Project: {ticket_project_output}"
+        ticket_context_line = f"Context: {ticket_context_output}"
+        ticket_due_line = f"Due: {ticket_due}"
+        ticket_complete_line = f"Completed: {ticket_completed}"
+
+        ticket_output_line = "\n".join(
+            [
+                ticket_id_line,
+                ticket_created_line,
+                ticket_title_line,
+                ticket_state_line,
+                ticket_actionable_line,
+                ticket_project_line,
+                ticket_context_line,
+                ticket_due_line,
+                ticket_complete_line
+            ]
+        )
+
+
+    display = (
+        "\n\n"
+        f"{title_line_full}"
+        "\n\n\n"
+        f" TICKET"
+        f"{item_sep}"
+        f"{ticket_output_line}"
+        f"{item_sep}"
+    )
+    print(display)
 
 
 def main():
@@ -839,7 +910,9 @@ def main():
         elif args.ticket_command == "list":
             list_ticket_items(args)
         elif args.ticket_command == "show":
-            pass
+            show_ticket_by_id(args.id)
+        else:
+            list_ticket_items(args)
 
     # Dashboard
     else:

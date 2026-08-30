@@ -1488,7 +1488,9 @@ def test_main_ticket_list_with_state_flag(isolated_storage_dir: Path, sample_bas
 #       Context: <context>  |  Context: —   (— when empty)
 #       Due: <due_at>  |  Due: — (not time-bound)
 #       Completed: <date_completed>  |  Completed: —
-#   * Cancelled tickets display normally.
+#   * Cancelled IDs hit the not-found path — spec §1 "Cancelled Means Gone" /
+#     §4.4: a cancelled ticket is invisible to the whole interface (get_ticket
+#     built on get_all_tickets() returns None). Recovery is manual JSON editing.
 #   * Out of scope: no edit / state change (T-103) / actionable toggle (T-104).
 #
 # Prepared test-first for the human implementation (spec §5). The handler is
@@ -1707,8 +1709,11 @@ def test_show_ticket_by_id_done_shows_completed_date(isolated_storage_dir: Path,
     _has(out, "Completed: 2026-09-01")
 
 
-def test_show_ticket_by_id_cancelled_displays_in_full(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
-    """Verify a cancelled ticket is reachable and rendered in full (not 'No ticket found').
+def test_show_ticket_by_id_cancelled_hits_not_found(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a cancelled ticket's ID hits the not-found path — "Cancelled Means Gone".
+
+    Per spec §1 / §4.4 a cancelled ticket is invisible to the whole interface, so
+    `op ticket show <cancelled id>` behaves exactly as if the ticket did not exist.
 
     # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
     # License: MIT
@@ -1732,9 +1737,8 @@ def test_show_ticket_by_id_cancelled_displays_in_full(isolated_storage_dir: Path
     _show_ticket("cafe0000")
     out = capsys.readouterr().out
 
-    assert "No ticket found" not in out
-    _has(out, "State: [cancelled]")
-    assert "Abandoned idea" in out
+    assert "No ticket found with an ID starting with cafe0000" in out
+    assert "Abandoned idea" not in out
 
 
 def test_show_ticket_by_id_partial_prefix_resolves(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):

@@ -12,7 +12,8 @@ OP is not a generic task manager or an administrative database to manually curat
 - **Low Friction Capture**: Plain-text capture without mandatory structure at creation time.
 - **Resource Reference, Not Storage**: OP links to external resources (Obsidian notes, Git repositories, filesystem paths, URLs) rather than becoming a document store.
 - **Rule-Based Recurrence**: Recurrence is evaluated on the fly rather than generating unbounded future records.
-- **State Progression over Deletion**: Completed projects, cancelled tickets, and historical items transition state to maintain long-term personal context.
+- **State Progression over Deletion**: Completed projects, cancelled tickets, and historical items transition state rather than being removed from the store, preserving long-term personal context and the flat file's integrity.
+- **Cancelled Means Gone (from the interface)**: A cancelled ticket is treated by every OP command and view as if it were deleted — it never appears in any list, lookup, count, detail view, or projection. The record is retained in `planner.json` only as a transparent-storage safety net: recovery is a deliberate manual edit of the JSON, not a CLI action. This keeps the interface simple (no "cancelled" clutter, no archive to browse) without actually losing data.
 - **Single Flat File Persistence**: Storage relies on a single JSON document (`planner.json`) acting as a simple, transparent database inside `OP_DATA_DIR`.
 
 ---
@@ -131,9 +132,22 @@ Individual executable steps. Diverging from strict single-next-action GTD, a pro
 - **Validation Rules**:
   - `time_bound` is automatically inferred as `True` if `due_at` is set.
   - If `time_bound=True`, a valid `due_at` must be supplied.
+- **Cancelled Tickets**: Per the *Cancelled Means Gone* principle (§1), a
+  `cancelled` ticket is invisible to the entire OP interface. All ticket
+  retrieval — list, single-ticket lookup/`show`, project ticket rollups, active
+  counts, dashboard, and review projections — must exclude it. There is no CLI
+  path to view, restore, or edit a cancelled ticket; the row remains in
+  `planner.json["tickets"]` purely so a manual JSON edit can recover it. Model
+  helpers reflect this: `get_all_tickets()` and everything built on it
+  (including single-ticket `get_ticket()`) filter `cancelled` out at the source.
 - **CLI Commands**:
   - `op ticket create`: Interactively create a standalone next-action ticket.
   - `op ticket create <id>`: Convert a bucket item into a ticket (discarding the bucket) or attach a new ticket/action to an existing project.
+  - `op ticket list`: List tickets (actionable-only by default; `--all` for all
+    non-cancelled; `--state <open|in_progress|done>` for one state). Cancelled
+    tickets never appear.
+  - `op ticket show <id>`: Display one ticket's full detail by ID prefix.
+    Resolves only non-cancelled tickets.
 
 ### 4.5 Habits & Routines
 Recurring items structured with a strict separation between **Definition** and **History**.

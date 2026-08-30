@@ -353,7 +353,7 @@ class TicketCollection(CollectionModel):
     def get_all_tickets(self) -> list[Ticket] | None:
         """Get all tickets
 
-        :return: List of all tickets
+        :return: List of all tickets or None
         """
         data_tickets = self.read_all(self.container_name)
         if not data_tickets:
@@ -364,6 +364,7 @@ class TicketCollection(CollectionModel):
             return None
 
         all_tickets = [t for t in all_tickets if not t.state == TicketState.CANCELLED]
+
         return all_tickets
 
     def get_ticket(self, pk: str) -> Ticket | None:

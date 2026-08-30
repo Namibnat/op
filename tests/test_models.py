@@ -1147,10 +1147,10 @@ class TestTicketCollection:
 
     # -- get_ticket (T-901 — single-ticket prefix lookup) ------------------
     # Analogous to get_bucket / get_project: first ticket whose pk starts with
-    # the prefix, else None. Unlike the list helpers, cancelled tickets ARE
-    # reachable here (direct by-ID fetch; spec §4.4 keeps them for reflection,
-    # and T-102 `op ticket show <id>` must be able to open one).
-    # Prepared test-first for the human implementation (spec §5).
+    # the prefix, else None. Built on get_all_tickets(), so cancelled tickets
+    # are invisible to it too — per spec §1 "Cancelled Means Gone" / §4.4, a
+    # cancelled ticket is gone from the entire interface and recovery is manual
+    # JSON editing only. Prepared test-first for the human implementation (spec §5).
 
     def test_get_ticket_empty_store_returns_none(self, isolated_storage_dir: Path):
         """Verify get_ticket returns None when the tickets container is empty.
@@ -1215,8 +1215,12 @@ class TestTicketCollection:
         ticket_col = TicketCollection()
         assert ticket_col.get_ticket("zzzz9999") is None
 
-    def test_get_ticket_returns_cancelled_ticket(self, isolated_storage_dir: Path, sample_base_data: dict):
-        """Verify get_ticket reaches a cancelled ticket that the list helpers hide.
+    def test_get_ticket_cancelled_ticket_returns_none(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_ticket returns None for a cancelled ticket's ID.
+
+        Per spec §1 "Cancelled Means Gone" / §4.4, a cancelled ticket is invisible
+        to the entire interface — get_ticket is built on get_all_tickets() and does
+        not reach it. Recovery is manual JSON editing only.
 
         # Authored by Claude Code (claude-sonnet-5) for T-901 test-first coverage.
         # License: MIT
@@ -1229,14 +1233,14 @@ class TestTicketCollection:
             json.dump(sample_base_data, f)
 
         ticket_col = TicketCollection()
-        ticket = ticket_col.get_ticket("dead0000")
-        assert ticket is not None
-        assert ticket.pk == cancelled_id
-        assert ticket.state == TicketState.CANCELLED
+        assert ticket_col.get_ticket("dead0000") is None
+        assert ticket_col.get_ticket(cancelled_id) is None
 
-        # Contrast: the list helpers still exclude it.
-        assert ticket_col.get_all_tickets() is None
-        assert ticket_col.get_tickets_by_state("cancelled") == []
+        # The other list helpers hide it too. The empty-return shape (None vs [])
+        # for an all-cancelled store is deliberately not pinned — derived helpers
+        # and `op ticket list` treat either the same (see T-101 convention).
+        assert not ticket_col.get_all_tickets()
+        assert not ticket_col.get_tickets_by_state("cancelled")
 
     def test_get_ticket_first_match_when_prefix_matches_multiple(self, isolated_storage_dir: Path, sample_base_data: dict):
         """Verify get_ticket returns the first match (no ambiguity detection), like its siblings.

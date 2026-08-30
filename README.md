@@ -94,10 +94,12 @@ op ticket create <bucket-id>                # Create a one-action ticket out of 
 op ticket create <project-id>               # Create a ticket for a project
 op ticket create                            # Create a one-action ticket directly
 op ticket list                              # List all tickets that are actionable
+op ticket list --actionable                 # List all tickets that are actionable
 op ticket list --state all                  # List all tickets that have not been cancelled
 op ticket list --state open                 # List all tickets that are open
 op ticket list --state in_progress          # List all tickets that are in progress
 op ticket list --state done                 # List all tickets that are done
+op ticket show <ticket-id>                  # Show a ticket's details
 # Listing all done tickets will be a lot, and probably more useful for reviews, suggest piping to a file:
 op ticket list --state done > /path/to/output.txt
 
