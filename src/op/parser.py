@@ -80,4 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
     )
 
+    show_ticket_parser = ticket_subparsers.add_parser("show")
+    show_ticket_parser.add_argument("id", type=str)
+
     return parser

@@ -7,6 +7,7 @@
 import argparse
 import datetime
 import json
+import re
 from pathlib import Path
 import pytest
 
@@ -36,6 +37,14 @@ from op.op import (
 )
 from op.models import BucketCollection, ProjectCollection, TicketCollection
 from op.schema import Bucket, Project, ProjectState
+
+# T-102 (`op ticket show <id>`) is prepared test-first (spec §5): the handler
+# does not exist yet. Guard the import so the rest of this file still collects;
+# the T-102 tests below assert the symbol is present before exercising it.
+try:  # pragma: no cover - import shim for the test-first window
+    from op.op import show_ticket_by_id
+except ImportError:  # noqa: F401 - resolved once T-102 lands
+    show_ticket_by_id = None
 
 
 def test_package_import():
@@ -1100,34 +1109,92 @@ def test_list_ticket_items_empty(isolated_storage_dir: Path, capsys: pytest.Capt
     assert "No tickets found" in captured.out
 
 
-def test_list_ticket_items_populated(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
-    """Verify list_ticket_items lists all tickets with ID, Created date, State, and Title.
+# ---------------------------------------------------------------------------
+# T-101 — `op ticket list` (core view)
+#
+# Locked contract (docs/dev_tickets.md, "Decisions locked 2026-08-29"):
+#   * no flags        -> actionable tickets only (Ticket.actionable is True),
+#                        cancelled excluded, newest-first by date_created.
+#   * --all           -> every non-cancelled ticket, newest-first.
+#   * --state <s>     -> tickets in state s regardless of the actionable flag;
+#                        cancelled never shown.
+#   * row format      -> single-line table row: "<short id>  <date>  <state>  <title>"
+#                        (the old 4-line ID:/Created date:/State:/Title: block is gone).
+#   * empty result    -> still prints "No tickets found".
+#
+# The tests below are prepared test-first for the human implementation (spec §5).
+# Scope: T-101 only. --project (T-108), --actionable (T-109) and inline project
+# reference in the flat list (T-110) are deliberately NOT exercised here.
+#
+# Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+# License: MIT
+# ---------------------------------------------------------------------------
 
-    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+# Labels from the dropped 4-line ticket block; none should survive T-101.
+_OLD_BLOCK_LABELS = ("ID:           ", "Created date:", "Title:        ")
+
+
+def _ticket_row(item: str, state: str, actionable: bool, date_created: str,
+                project=None) -> dict:
+    """Build a stored-form ticket dict for T-101 list fixtures.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    """
+    return {
+        "title": item,
+        "state": state,
+        "project": project,
+        "actionable": actionable,
+        "context": "lab",
+        "date_created": date_created,
+        "date_completed": "2026-09-01" if state == "done" else None,
+        "time_bound": False,
+        "due_at": None,
+    }
+
+
+def _assert_single_line_row(output: str, short_id: str, date_created: str,
+                            state: str, title: str) -> None:
+    """Assert the ticket renders as one line: short id, date, state, title, in order.
+
+    Whitespace between columns is not pinned (a padded table is allowed), but all
+    four fields must land on the same physical line in the documented order.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    """
+    pattern = re.compile(
+        rf"{re.escape(short_id)}\s+{re.escape(date_created)}\s+"
+        rf"{re.escape(state)}\s+{re.escape(title)}",
+        re.MULTILINE,
+    )
+    assert pattern.search(output), (
+        f"expected single-line row '{short_id}  {date_created}  {state}  {title}' "
+        f"in output:\n{output}"
+    )
+
+
+def _assert_no_old_block_format(output: str) -> None:
+    """Assert the dropped 4-line ticket block is not present.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    """
+    for label in _OLD_BLOCK_LABELS:
+        assert label not in output, f"old block label {label!r} still rendered"
+
+
+def test_list_ticket_items_populated(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify the bare `ticket list` shows actionable tickets as single-line rows.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
     """
     sample_base_data["tickets"] = {
-        "11112222-3333-4444-5555-666677778888": {
-            "title": "Alpha ticket",
-            "state": "open",
-            "project": None,
-            "actionable": True,
-            "context": "lab",
-            "date_created": "2026-08-20",
-            "date_completed": None,
-            "time_bound": False,
-            "due_at": None,
-        },
-        "99998888-7777-6666-5555-444433332222": {
-            "title": "Beta ticket",
-            "state": "in_progress",
-            "project": None,
-            "actionable": True,
-            "context": "office",
-            "date_created": "2026-08-21",
-            "date_completed": None,
-            "time_bound": False,
-            "due_at": None,
-        },
+        "11112222-3333-4444-5555-666677778888": _ticket_row(
+            "Alpha ticket", "open", True, "2026-08-20"
+        ),
+        "99998888-7777-6666-5555-444433332222": _ticket_row(
+            "Beta ticket", "in_progress", True, "2026-08-21"
+        ),
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -1137,71 +1204,205 @@ def test_list_ticket_items_populated(isolated_storage_dir: Path, sample_base_dat
     captured = capsys.readouterr()
 
     assert "TICKETS - 2 tickets" in captured.out
-    assert "ID:           11112222" in captured.out
-    assert "Title:        Alpha ticket" in captured.out
-    assert "State:        open" in captured.out
-    assert "ID:           99998888" in captured.out
-    assert "Title:        Beta ticket" in captured.out
-    assert "State:        in_progress" in captured.out
+    _assert_single_line_row(captured.out, "11112222", "2026-08-20", "open", "Alpha ticket")
+    _assert_single_line_row(captured.out, "99998888", "2026-08-21", "in_progress", "Beta ticket")
+    _assert_no_old_block_format(captured.out)
 
 
-def test_list_ticket_items_filtered_by_state(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
-    """Verify list_ticket_items filters results when args.state is provided.
+def test_list_ticket_items_default_actionable_only(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify the no-flag default hides non-actionable and cancelled tickets.
 
-    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
     """
     sample_base_data["tickets"] = {
-        "11112222-3333-4444-5555-666677778888": {
-            "title": "Alpha Open",
-            "state": "open",
-            "project": None,
-            "actionable": True,
-            "context": "lab",
-            "date_created": "2026-08-20",
-            "date_completed": None,
-            "time_bound": False,
-            "due_at": None,
-        },
-        "22223333-4444-5555-6666-777788889999": {
-            "title": "Beta In Progress",
-            "state": "in_progress",
-            "project": None,
-            "actionable": True,
-            "context": "office",
-            "date_created": "2026-08-21",
-            "date_completed": None,
-            "time_bound": False,
-            "due_at": None,
-        },
+        "aaaa1111-0000-0000-0000-000000000000": _ticket_row(
+            "Actionable open", "open", True, "2026-08-20"
+        ),
+        "bbbb2222-0000-0000-0000-000000000000": _ticket_row(
+            "Actionable in progress", "in_progress", True, "2026-08-21"
+        ),
+        "cccc3333-0000-0000-0000-000000000000": _ticket_row(
+            "Waiting on a dependency", "open", False, "2026-08-22"
+        ),
+        "dddd4444-0000-0000-0000-000000000000": _ticket_row(
+            "Cancelled but actionable", "cancelled", True, "2026-08-23"
+        ),
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
 
-    args = argparse.Namespace(all=False, state="open")
-    list_ticket_items(args)
+    list_ticket_items(argparse.Namespace(all=False, state=None))
     captured = capsys.readouterr()
 
-    assert "Alpha Open" in captured.out
-    assert "Beta In Progress" not in captured.out
+    assert "TICKETS - 2 tickets" in captured.out
+    assert "Actionable open" in captured.out
+    assert "Actionable in progress" in captured.out
+    assert "Waiting on a dependency" not in captured.out
+    assert "Cancelled but actionable" not in captured.out
+
+
+def test_list_ticket_items_default_newest_first(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify the default view is ordered newest-first by date_created.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
+    """
+    sample_base_data["tickets"] = {
+        "11110000-0000-0000-0000-000000000000": _ticket_row(
+            "Oldest ticket", "open", True, "2026-08-01"
+        ),
+        "22220000-0000-0000-0000-000000000000": _ticket_row(
+            "Newest ticket", "open", True, "2026-08-25"
+        ),
+        "33330000-0000-0000-0000-000000000000": _ticket_row(
+            "Middle ticket", "open", True, "2026-08-12"
+        ),
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_ticket_items(argparse.Namespace(all=False, state=None))
+    captured = capsys.readouterr()
+
+    pos_newest = captured.out.find("Newest ticket")
+    pos_middle = captured.out.find("Middle ticket")
+    pos_oldest = captured.out.find("Oldest ticket")
+    assert -1 not in (pos_newest, pos_middle, pos_oldest)
+    assert pos_newest < pos_middle < pos_oldest
+
+
+def test_list_ticket_items_all_flag(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify `--all` shows every non-cancelled ticket, actionable or not.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
+    """
+    sample_base_data["tickets"] = {
+        "aaaa1111-0000-0000-0000-000000000000": _ticket_row(
+            "Actionable open", "open", True, "2026-08-20"
+        ),
+        "bbbb2222-0000-0000-0000-000000000000": _ticket_row(
+            "Blocked ticket", "open", False, "2026-08-21"
+        ),
+        "cccc3333-0000-0000-0000-000000000000": _ticket_row(
+            "Finished ticket", "done", False, "2026-08-22"
+        ),
+        "dddd4444-0000-0000-0000-000000000000": _ticket_row(
+            "Cancelled ticket", "cancelled", True, "2026-08-23"
+        ),
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_ticket_items(argparse.Namespace(all=True, state=None))
+    captured = capsys.readouterr()
+
+    assert "TICKETS - 3 tickets" in captured.out
+    assert "Actionable open" in captured.out
+    assert "Blocked ticket" in captured.out
+    assert "Finished ticket" in captured.out
+    assert "Cancelled ticket" not in captured.out
+    _assert_no_old_block_format(captured.out)
+
+
+@pytest.mark.parametrize("state", ["open", "in_progress", "done"])
+def test_list_ticket_items_state_filter_ignores_actionable(
+    state: str, isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture
+):
+    """Verify `--state <s>` returns tickets in that state regardless of actionable.
+
+    A non-actionable ticket in the requested state must still appear; tickets in
+    other states and cancelled tickets must not.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
+    """
+    other_state = "in_progress" if state == "open" else "open"
+    sample_base_data["tickets"] = {
+        "aaaa1111-0000-0000-0000-000000000000": _ticket_row(
+            "Wanted non-actionable", state, False, "2026-08-20"
+        ),
+        "bbbb2222-0000-0000-0000-000000000000": _ticket_row(
+            "Wanted actionable", state, True, "2026-08-21"
+        ),
+        "cccc3333-0000-0000-0000-000000000000": _ticket_row(
+            "Other state ticket", other_state, True, "2026-08-22"
+        ),
+        "dddd4444-0000-0000-0000-000000000000": _ticket_row(
+            "Cancelled ticket", "cancelled", True, "2026-08-23"
+        ),
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_ticket_items(argparse.Namespace(all=False, state=state))
+    captured = capsys.readouterr()
+
+    assert "TICKETS - 2 tickets" in captured.out
+    assert "Wanted non-actionable" in captured.out
+    assert "Wanted actionable" in captured.out
+    assert "Other state ticket" not in captured.out
+    assert "Cancelled ticket" not in captured.out
+    _assert_single_line_row(captured.out, "aaaa1111", "2026-08-20", state, "Wanted non-actionable")
+
+
+def test_list_ticket_items_state_filter_empty_result(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a state filter that matches nothing still prints 'No tickets found'.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
+    """
+    sample_base_data["tickets"] = {
+        "aaaa1111-0000-0000-0000-000000000000": _ticket_row(
+            "Only open ticket", "open", True, "2026-08-20"
+        ),
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_ticket_items(argparse.Namespace(all=False, state="done"))
+    captured = capsys.readouterr()
+
+    assert "No tickets found" in captured.out
+
+
+def test_list_ticket_items_default_all_non_actionable_prints_empty(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify the default view prints 'No tickets found' when nothing is actionable.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
+    """
+    sample_base_data["tickets"] = {
+        "aaaa1111-0000-0000-0000-000000000000": _ticket_row(
+            "Blocked one", "open", False, "2026-08-20"
+        ),
+        "bbbb2222-0000-0000-0000-000000000000": _ticket_row(
+            "Blocked two", "in_progress", False, "2026-08-21"
+        ),
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_ticket_items(argparse.Namespace(all=False, state=None))
+    captured = capsys.readouterr()
+
+    assert "No tickets found" in captured.out
 
 
 def test_main_ticket_list_dispatch(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    """Verify main() dispatches 'ticket list' to list_ticket_items.
+    """Verify `op ticket list` dispatches through main() to the actionable-only view.
 
-    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
     """
     sample_base_data["tickets"] = {
-        "11112222-3333-4444-5555-666677778888": {
-            "title": "Alpha ticket",
-            "state": "open",
-            "project": None,
-            "actionable": True,
-            "context": "lab",
-            "date_created": "2026-08-20",
-            "date_completed": None,
-            "time_bound": False,
-            "due_at": None,
-        }
+        "11112222-3333-4444-5555-666677778888": _ticket_row(
+            "Alpha ticket", "open", True, "2026-08-20"
+        ),
+        "22223333-4444-5555-6666-777788889999": _ticket_row(
+            "Blocked beta", "open", False, "2026-08-21"
+        ),
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -1211,37 +1412,50 @@ def test_main_ticket_list_dispatch(isolated_storage_dir: Path, sample_base_data:
     captured = capsys.readouterr()
 
     assert "TICKETS - 1 tickets" in captured.out
+    _assert_single_line_row(captured.out, "11112222", "2026-08-20", "open", "Alpha ticket")
+    assert "Blocked beta" not in captured.out
+    _assert_no_old_block_format(captured.out)
+
+
+def test_main_ticket_list_all_flag(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify `op ticket list --all` dispatches through main() and shows blocked tickets.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
+    """
+    sample_base_data["tickets"] = {
+        "11112222-3333-4444-5555-666677778888": _ticket_row(
+            "Alpha ticket", "open", True, "2026-08-20"
+        ),
+        "22223333-4444-5555-6666-777788889999": _ticket_row(
+            "Blocked beta", "open", False, "2026-08-21"
+        ),
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    monkeypatch.setattr("sys.argv", ["op", "ticket", "list", "--all"])
+    main()
+    captured = capsys.readouterr()
+
+    assert "TICKETS - 2 tickets" in captured.out
     assert "Alpha ticket" in captured.out
+    assert "Blocked beta" in captured.out
 
 
 def test_main_ticket_list_with_state_flag(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    """Verify main() dispatches 'ticket list --state open' and filters output.
+    """Verify `op ticket list --state open` dispatches through main() and filters output.
 
-    # Authored by Antigravity Agent (Gemini 3.7 Flash)
+    # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+    # License: MIT
     """
     sample_base_data["tickets"] = {
-        "11112222-3333-4444-5555-666677778888": {
-            "title": "Open Item",
-            "state": "open",
-            "project": None,
-            "actionable": True,
-            "context": "lab",
-            "date_created": "2026-08-20",
-            "date_completed": None,
-            "time_bound": False,
-            "due_at": None,
-        },
-        "22223333-4444-5555-6666-777788889999": {
-            "title": "Done Item",
-            "state": "done",
-            "project": None,
-            "actionable": False,
-            "context": "office",
-            "date_created": "2026-08-21",
-            "date_completed": "2026-08-22",
-            "time_bound": False,
-            "due_at": None,
-        },
+        "11112222-3333-4444-5555-666677778888": _ticket_row(
+            "Open Item", "open", True, "2026-08-20"
+        ),
+        "22223333-4444-5555-6666-777788889999": _ticket_row(
+            "Done Item", "done", False, "2026-08-21"
+        ),
     }
     with open(isolated_storage_dir / "planner.json", "w") as f:
         json.dump(sample_base_data, f)
@@ -1252,5 +1466,336 @@ def test_main_ticket_list_with_state_flag(isolated_storage_dir: Path, sample_bas
 
     assert "Open Item" in captured.out
     assert "Done Item" not in captured.out
+
+
+# ---------------------------------------------------------------------------
+# T-102 — `op ticket show <id>` (read-only detail block, depends on T-901)
+#
+# Locked decisions (docs/dev_tickets.md, "T-102 ... groomed with T-901 2026-08-29"):
+#   * Lookup via TicketCollection.get_ticket(pk.strip()) (T-901).
+#   * Not found -> single line "No ticket found with an ID starting with <pk>"
+#     inside the standard title-line + " TICKET" header + separator frame,
+#     no non-zero exit.
+#   * Found -> one labelled detail block, `op project show` layout style:
+#       ID: <short id>
+#       [Created: <date_created>]
+#       <title>
+#       State: [<state>]
+#       Actionable: Yes|No
+#       Project: <short id>  <name>      (linked, name via ProjectCollection.get_project)
+#       Project: — (standalone)          (project is None)
+#       Project: <id> (project not found) (stored id no longer resolves — no crash)
+#       Context: <context>  |  Context: —   (— when empty)
+#       Due: <due_at>  |  Due: — (not time-bound)
+#       Completed: <date_completed>  |  Completed: —
+#   * Cancelled tickets display normally.
+#   * Out of scope: no edit / state change (T-103) / actionable toggle (T-104).
+#
+# Prepared test-first for the human implementation (spec §5). The handler is
+# expected to be named `op.op.show_ticket_by_id` (mirrors `show_project_by_id`).
+#
+# Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+# License: MIT
+# ---------------------------------------------------------------------------
+
+
+def _show_ticket(pk: str):
+    """Call the T-102 handler, failing clearly if it is not implemented yet.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    """
+    assert show_ticket_by_id is not None, (
+        "T-102 not implemented: op.op.show_ticket_by_id is missing"
+    )
+    return show_ticket_by_id(pk)
+
+
+def _has(output: str, *fragments: str) -> None:
+    """Assert each fragment appears in output, tolerant of run-length whitespace.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    """
+    for frag in fragments:
+        pattern = r"\s+".join(re.escape(tok) for tok in frag.split())
+        assert re.search(pattern, output), f"missing {frag!r} in output:\n{output}"
+
+
+def _write(isolated_storage_dir: Path, data: dict) -> None:
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(data, f)
+
+
+def test_show_ticket_by_id_not_found(isolated_storage_dir: Path, capsys: pytest.CaptureFixture):
+    """Verify show_ticket_by_id prints the sibling-style not-found line, no crash.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    _show_ticket("99999999")
+    captured = capsys.readouterr()
+
+    assert "No ticket found with an ID starting with 99999999" in captured.out
+    assert re.search(r"\sTICKET\b", captured.out)
+
+
+def test_show_ticket_by_id_standalone_open(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a standalone open ticket renders every labelled field.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    ticket_id = "11112222-3333-4444-5555-666677778888"
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Clean the gutters",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    _show_ticket("11112222")
+    captured = capsys.readouterr()
+    out = captured.out
+
+    _has(out, "ID: 11112222")
+    _has(out, "Created: 2026-08-20")
+    assert "Clean the gutters" in out
+    _has(out, "State: [open]")
+    _has(out, "Actionable: Yes")
+    _has(out, "Project: — (standalone)")
+    _has(out, "Context: —")
+    _has(out, "Due: — (not time-bound)")
+    _has(out, "Completed: —")
+
+
+def test_show_ticket_by_id_project_linked_resolves_name(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a project-linked ticket shows the project's short id and resolved name.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    project_id = "aabbccdd-1111-2222-3333-444455556666"
+    ticket_id = "99998888-7777-6666-5555-444433332222"
+    sample_base_data["projects"] = {
+        project_id: {
+            "name": "Solar Battery Setup",
+            "spec": "Install panels",
+            "state": "active",
+            "done_when": "Grid tie on",
+            "date_created": "2026-08-17",
+            "resources": {},
+        }
+    }
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Order solar inverter",
+            "state": "in_progress",
+            "project": project_id,
+            "actionable": False,
+            "context": "shed",
+            "date_created": "2026-08-21",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    _show_ticket("99998888")
+    out = capsys.readouterr().out
+
+    _has(out, "State: [in_progress]")
+    _has(out, "Actionable: No")
+    _has(out, "Context: shed")
+    _has(out, f"Project: {project_id[:8]}")
+    assert "Solar Battery Setup" in out
+
+
+def test_show_ticket_by_id_project_missing_does_not_crash(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a linked project id that no longer resolves shows '(project not found)'.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    ticket_id = "12345678-9999-9999-9999-999999999999"
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Orphaned ticket",
+            "state": "open",
+            "project": "ffffffff-dead-dead-dead-ffffffffffff",
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-22",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    _show_ticket("12345678")
+    out = capsys.readouterr().out
+
+    _has(out, "(project not found)")
+    assert "Orphaned ticket" in out
+
+
+def test_show_ticket_by_id_time_bound_shows_due_datetime(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a time-bound ticket renders its due datetime on the Due line.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    ticket_id = "aaaa0000-bbbb-1111-cccc-222233334444"
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Submit abstract",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-22",
+            "date_completed": None,
+            "time_bound": True,
+            "due_at": "2026-10-12T11:30:00",
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    _show_ticket("aaaa0000")
+    out = capsys.readouterr().out
+
+    _has(out, "Due:")
+    assert "2026-10-12" in out
+    assert "11:30" in out
+    assert "not time-bound" not in out
+
+
+def test_show_ticket_by_id_done_shows_completed_date(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a done ticket shows State [done] and its date_completed.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    ticket_id = "bbbb0000-cccc-1111-dddd-222233334444"
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Ship the thing",
+            "state": "done",
+            "project": None,
+            "actionable": False,
+            "context": "",
+            "date_created": "2026-08-10",
+            "date_completed": "2026-09-01",
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    _show_ticket("bbbb0000")
+    out = capsys.readouterr().out
+
+    _has(out, "State: [done]")
+    _has(out, "Completed: 2026-09-01")
+
+
+def test_show_ticket_by_id_cancelled_displays_in_full(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a cancelled ticket is reachable and rendered in full (not 'No ticket found').
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    ticket_id = "cafe0000-1111-2222-3333-444455556666"
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Abandoned idea",
+            "state": "cancelled",
+            "project": None,
+            "actionable": False,
+            "context": "home",
+            "date_created": "2026-08-05",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    _show_ticket("cafe0000")
+    out = capsys.readouterr().out
+
+    assert "No ticket found" not in out
+    _has(out, "State: [cancelled]")
+    assert "Abandoned idea" in out
+
+
+def test_show_ticket_by_id_partial_prefix_resolves(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify an 8-char prefix resolves to the right ticket.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    ticket_id = "0ff1ce00-abcd-abcd-abcd-abcdabcdabcd"
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Prefix target",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-22",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    _show_ticket("0ff1ce00")
+    out = capsys.readouterr().out
+
+    assert "Prefix target" in out
+    _has(out, "ID: 0ff1ce00")
+
+
+def test_main_ticket_show_dispatch(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify `op ticket show <id>` routes through main() to the detail block.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-102 test-first coverage.
+    # License: MIT
+    """
+    assert show_ticket_by_id is not None, (
+        "T-102 not implemented: op.op.show_ticket_by_id is missing"
+    )
+    ticket_id = "dddd1111-2222-3333-4444-555566667777"
+    sample_base_data["tickets"] = {
+        ticket_id: {
+            "title": "Routed ticket",
+            "state": "open",
+            "project": None,
+            "actionable": True,
+            "context": "lab",
+            "date_created": "2026-08-20",
+            "date_completed": None,
+            "time_bound": False,
+            "due_at": None,
+        }
+    }
+    _write(isolated_storage_dir, sample_base_data)
+
+    monkeypatch.setattr("sys.argv", ["op", "ticket", "show", "dddd1111"])
+    main()
+    out = capsys.readouterr().out
+
+    assert "Routed ticket" in out
+    _has(out, "State: [open]")
 
 

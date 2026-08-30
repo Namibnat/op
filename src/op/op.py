@@ -61,21 +61,26 @@ def create_title_line(terminal_width: int) -> str:
 def create_type_item_str(
         items: list[Any],
         item_length: int,
-        get_label: Callable[[Any], str] = lambda x: getattr(x, "item", getattr(x, "name", ""))
+        get_label: Callable[[Any], str] = lambda x: getattr(x, "item", getattr(x, "name", "")),
+        include_state: bool = False,
 ) -> str:
     """Create the type item string for printing
 
     :param items: The type of item
     :param item_length: The length of the item
     :param get_label: Function to get label
+    :param include_state: Whether to include state information
     :return: Type item string
     """
     print_lines = list()
+    state = ''
     for item in items:
         created_date = item.date_created
         name = get_label(item)
         primary_key = output_id_string(item.pk)
-        print_line = f"{primary_key}  {created_date}  {name[:item_length]}"
+        if include_state and hasattr(item, 'state') and item.state:
+            state = f"{item.state}  "
+        print_line = f"{primary_key}  {created_date}  {state}{name[:item_length]}"
         print_lines.append(print_line)
 
     type_items_string = "\n\t".join(print_lines)
@@ -733,16 +738,16 @@ def list_ticket_items(args: argparse.Namespace):
     ticket_interface = TicketCollection()
 
     # Filter: by default filter by all
-    ticket_filter = 'all'
+    ticket_filter = 'actionable'
     if args.all:
         ticket_filter = 'all'
     elif args.state:
         ticket_filter = args.state
-    else:
-        ticket_filter = 'in_progress'
 
     if ticket_filter == 'all':
         all_tickets = ticket_interface.get_all_tickets()
+    elif ticket_filter == 'actionable':
+        all_tickets = ticket_interface.get_actionable_tickets()
     else:
         all_tickets = ticket_interface.get_tickets_by_state(args.state)
 
@@ -755,23 +760,23 @@ def list_ticket_items(args: argparse.Namespace):
     title_line_full = create_title_line(terminal_width)
 
     len_all_tickets = len(all_tickets)
+    all_tickets = sorted(all_tickets, key=lambda x: x.date_created, reverse=True)
 
-    ticket_items = list()
-    all_tickets = sorted(all_tickets, key=lambda x: x.date_created)
-    for ticket in all_tickets:
-        short_id = output_id_string(ticket.pk)
-        created_date = ticket.date_created
-        state = ticket.state
-        title = ticket.title
-        ticket_display = (
-            f"ID:           {short_id}\n"
-            f"Created date: {created_date}\n"
-            f"State:        {state}\n"
-            f"Title:        {title}\n"
+    # The first part is 22 characters, and add some space at the end of the line
+    reasonable_item_length = max(10, terminal_width - 40)
+
+    ticket_items_string = "\tNo tickets found"
+
+    def get_title(item):
+        return item.title
+
+    if all_tickets:
+        ticket_items_string = create_type_item_str(
+            items=all_tickets,
+            item_length=reasonable_item_length,
+            get_label=get_title,
+            include_state=True
         )
-        ticket_items.append(ticket_display)
-
-    ticket_items_string = '\n'.join(ticket_items)
 
     display = (
         "\n\n"
@@ -783,6 +788,14 @@ def list_ticket_items(args: argparse.Namespace):
         f"{item_sep}"
     )
     print(display)
+
+
+def show_ticket_by_id(pk: str):
+    """Show ticket by id
+
+    :param pk: Ticket ID
+    """
+    pass
 
 
 def main():
@@ -825,6 +838,8 @@ def main():
             ticket_create_dispatch(args)
         elif args.ticket_command == "list":
             list_ticket_items(args)
+        elif args.ticket_command == "show":
+            pass
 
     # Dashboard
     else:

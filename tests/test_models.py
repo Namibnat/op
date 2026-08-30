@@ -1076,6 +1076,189 @@ class TestTicketCollection:
         ticket_col = TicketCollection()
         assert ticket_col.get_tickets_by_state("cancelled") == []
 
+    # -- get_actionable_tickets (T-101 support) -----------------------------
+    # The bare `op ticket list` default is "actionable tickets only" per the
+    # locked T-101 decisions, so TicketCollection needs an actionable-only
+    # lookup built on get_all_tickets() (cancelled already excluded there).
+    # Prepared test-first for the human implementation (spec §5).
+
+    def test_get_actionable_tickets_empty(self, isolated_storage_dir: Path):
+        """Verify get_actionable_tickets returns None when tickets container is empty.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+        # License: MIT
+        """
+        ticket_col = TicketCollection()
+        assert ticket_col.get_actionable_tickets() is None
+
+    def test_get_actionable_tickets_filters_by_actionable_flag(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_actionable_tickets returns only tickets with actionable == True.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+        # License: MIT
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {"title": "Act Open", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t-2": {"title": "Act InProg", "state": "in_progress", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t-3": {"title": "Blocked", "state": "open", "project": "proj-1", "actionable": False, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        actionable = ticket_col.get_actionable_tickets()
+        assert actionable is not None
+        assert all(t.actionable is True for t in actionable)
+        assert {t.title for t in actionable} == {"Act Open", "Act InProg"}
+
+    def test_get_actionable_tickets_excludes_cancelled(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_actionable_tickets never returns cancelled tickets, even actionable ones.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+        # License: MIT
+        """
+        sample_base_data["tickets"] = {
+            "t-live": {"title": "Live", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            "t-cancelled": {"title": "Cancelled", "state": "cancelled", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        actionable = ticket_col.get_actionable_tickets()
+        assert actionable is not None
+        assert len(actionable) == 1
+        assert actionable[0].title == "Live"
+
+    def test_get_actionable_tickets_no_matches_returns_empty_list(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_actionable_tickets returns [] when tickets exist but none are actionable.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-101 test-first coverage.
+        # License: MIT
+        """
+        sample_base_data["tickets"] = {
+            "t-1": {"title": "Blocked", "state": "open", "project": None, "actionable": False, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        assert ticket_col.get_actionable_tickets() == []
+
+    # -- get_ticket (T-901 — single-ticket prefix lookup) ------------------
+    # Analogous to get_bucket / get_project: first ticket whose pk starts with
+    # the prefix, else None. Unlike the list helpers, cancelled tickets ARE
+    # reachable here (direct by-ID fetch; spec §4.4 keeps them for reflection,
+    # and T-102 `op ticket show <id>` must be able to open one).
+    # Prepared test-first for the human implementation (spec §5).
+
+    def test_get_ticket_empty_store_returns_none(self, isolated_storage_dir: Path):
+        """Verify get_ticket returns None when the tickets container is empty.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-901 test-first coverage.
+        # License: MIT
+        """
+        ticket_col = TicketCollection()
+        assert ticket_col.get_ticket("anything") is None
+
+    def test_get_ticket_exact_pk_match(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_ticket returns the Ticket on an exact pk match.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-901 test-first coverage.
+        # License: MIT
+        """
+        full_id = "12341234-5678-5678-9abc-9abc9abc9abc"
+        sample_base_data["tickets"] = {
+            full_id: {"title": "Exact match", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        ticket = ticket_col.get_ticket(full_id)
+        assert ticket is not None
+        assert isinstance(ticket, Ticket)
+        assert ticket.pk == full_id
+        assert ticket.title == "Exact match"
+
+    def test_get_ticket_partial_prefix_match(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_ticket resolves a short prefix to the full ticket.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-901 test-first coverage.
+        # License: MIT
+        """
+        full_id = "abcd1234-0000-0000-0000-000000000000"
+        sample_base_data["tickets"] = {
+            full_id: {"title": "Prefix match", "state": "in_progress", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        ticket = ticket_col.get_ticket("abcd1234")
+        assert ticket is not None
+        assert ticket.pk == full_id
+        assert ticket.title == "Prefix match"
+
+    def test_get_ticket_non_matching_prefix_returns_none(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_ticket returns None when no pk starts with the prefix.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-901 test-first coverage.
+        # License: MIT
+        """
+        sample_base_data["tickets"] = {
+            "aaaa1111-0000-0000-0000-000000000000": {"title": "Only ticket", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        assert ticket_col.get_ticket("zzzz9999") is None
+
+    def test_get_ticket_returns_cancelled_ticket(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_ticket reaches a cancelled ticket that the list helpers hide.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-901 test-first coverage.
+        # License: MIT
+        """
+        cancelled_id = "dead0000-0000-0000-0000-000000000000"
+        sample_base_data["tickets"] = {
+            cancelled_id: {"title": "Cancelled ticket", "state": "cancelled", "project": None, "actionable": False, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        ticket = ticket_col.get_ticket("dead0000")
+        assert ticket is not None
+        assert ticket.pk == cancelled_id
+        assert ticket.state == TicketState.CANCELLED
+
+        # Contrast: the list helpers still exclude it.
+        assert ticket_col.get_all_tickets() is None
+        assert ticket_col.get_tickets_by_state("cancelled") == []
+
+    def test_get_ticket_first_match_when_prefix_matches_multiple(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify get_ticket returns the first match (no ambiguity detection), like its siblings.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-901 test-first coverage.
+        # License: MIT
+        """
+        first_id = "5555aaaa-0000-0000-0000-000000000000"
+        second_id = "5555bbbb-0000-0000-0000-000000000000"
+        sample_base_data["tickets"] = {
+            first_id: {"title": "First inserted", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+            second_id: {"title": "Second inserted", "state": "open", "project": None, "actionable": True, "context": "", "date_created": "2026-08-22", "date_completed": None, "time_bound": False, "due_at": None},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        ticket_col = TicketCollection()
+        ticket = ticket_col.get_ticket("5555")
+        assert ticket is not None
+        assert ticket.pk == first_id
+        assert ticket.title == "First inserted"
+
 
 class TestRoutinesCollection:
     """Tests for RoutinesCollection model.

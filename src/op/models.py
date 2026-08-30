@@ -366,6 +366,20 @@ class TicketCollection(CollectionModel):
         all_tickets = [t for t in all_tickets if not t.state == TicketState.CANCELLED]
         return all_tickets
 
+    def get_ticket(self, pk: str) -> Ticket | None:
+        """Get a ticket by its ID
+
+        :param pk: Ticket ID
+        :return: Ticket or None
+        """
+        all_tickets = self.get_all_tickets()
+        if not all_tickets:
+            return None
+        for ticket in all_tickets:
+            if ticket.pk.startswith(pk):
+                return ticket
+
+        return None
 
     def get_project_tickets(self, pk: str) -> List[Ticket] | None:
         """Get all tickets for a project.
@@ -403,6 +417,20 @@ class TicketCollection(CollectionModel):
             if ticket.state == state:
                 filtered_tickets.append(ticket)
 
+        return filtered_tickets
+
+    def get_actionable_tickets(self) -> list[Ticket] | None:
+        """Get all actionable tickets
+
+        :return: List of actionable tickets
+        """
+        all_tickets = self.get_all_tickets()
+        if not all_tickets:
+            return None
+        filtered_tickets = []
+        for ticket in all_tickets:
+            if ticket.actionable:
+                filtered_tickets.append(ticket)
         return filtered_tickets
 
 
