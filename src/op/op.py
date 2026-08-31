@@ -17,6 +17,12 @@ def console_clear():
     print("\033[2J\033[H", end="")
 
 
+def choice_input() -> str:
+    """Get a choice from the user"""
+    choice = input("% ")
+    return choice.strip()
+
+
 def date_string() -> str:
     """Create a formatted date string for printing
 
@@ -34,7 +40,7 @@ def output_id_string(pk: str) -> str:
 
 
 def create_item_seperator(terminal_width: int) -> str:
-    """Create item separator
+    """Create an item separator
 
     :param terminal_width: The width of the terminal window as an int
     :return: Formatting to add space between items
@@ -86,6 +92,33 @@ def create_type_item_str(
 
     type_items_string = "\n\t".join(print_lines)
     return type_items_string
+
+
+def parse_due_input(raw_date_input: str) -> tuple[str | None, bool]:
+    """Parse the due_date and time_bound.
+
+    :param raw_date_input: User input, which could be a date or a dash to indicate clear
+    :return: Due date string and if the ticket is time-bound.
+    """
+    if not raw_date_input:
+        return None, False
+
+    if raw_date_input == "-":
+        return None, True
+
+    pattern_short_date = re.compile(r'^\d{4}-\d{2}-\d{2}')
+    pattern_full_date = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$')
+
+    if not re.search(r'\d{4}-\d{2}-\d{2}', raw_date_input):
+        return None, False
+
+    if re.search(pattern_short_date, raw_date_input):
+        if not re.search(pattern_full_date, raw_date_input):
+            return f"{raw_date_input} 00:00", True
+
+        return raw_date_input, True
+
+    return None, False
 
 
 def print_dashboard(dashboard_data: dict):
@@ -521,8 +554,7 @@ def set_project_by_id(pk: str):
 
     print()
 
-    choice = input("% ")
-    choice = choice.strip()
+    choice = choice_input()
     if not choice.isdigit() or int(choice) not in range(1, len(ProjectState) + 1):
         print(f"Invalid choice {choice}, try again")
         return
@@ -655,17 +687,7 @@ def create_ticket(pk: str | None = None, is_project: bool = False) -> bool:
     due_at = None
     due_date_raw = input(": ").strip()
     if due_date_raw:
-        date_pattern = re.compile(r"(?P<date>\d{4}-\d{2}-\d{2})")
-        time_pattern = re.compile(r"(?P<time>\d{2}:\d{2})")
-        date_match = date_pattern.search(due_date_raw)
-        time_match = time_pattern.search(due_date_raw)
-        if date_match:
-            date_field = date_match.group('date')
-            due_at = f"{date_field} 00:00"
-            if time_match:
-                time_field = time_match.group('time')
-                due_at = f"{date_field} {time_field}"
-            time_bound = True
+        due_at, time_bound = parse_due_input(due_date_raw)
 
     new_ticket_item = Ticket.model_validate(
         {
@@ -795,12 +817,18 @@ def show_ticket_by_id(
         pk: str,
         state_update: bool = False,
         actionable_updated: bool = False,
+        title_updated: bool = False,
+        context_updated: bool = False,
+        due_date_updated: bool = False,
 ):
     """Show ticket by id
 
     :param pk: Ticket ID
     :param state_update: True if the state was updated
     :param actionable_updated: True if the actionable was updated
+    :param title_updated: True if the title was updated
+    :param context_updated: True if the context was updated
+    :param due_date_updated: True if the due date was updated
     """
     terminal_width = shutil.get_terminal_size().columns
     item_sep = create_item_seperator(terminal_width)
@@ -841,6 +869,8 @@ def show_ticket_by_id(
         ticket_id_line = f"ID: {ticket_output_line}"
         ticket_created_line = f"[Created: {ticket_created}]"
         ticket_title_line = f"\nTitle: {ticket_title}"
+        if title_updated:
+            ticket_title_line = f"Updated Title: {ticket_title}"
         ticket_state_line = f"State: [{ticket_state}]"
         if state_update:
             ticket_state_line = f"Updated State: [{ticket_state}]"
@@ -849,7 +879,11 @@ def show_ticket_by_id(
             ticket_actionable_line = f"Updated Actionable: {ticket_actionable_output}"
         ticket_project_line = f"Project: {ticket_project_output}"
         ticket_context_line = f"Context: {ticket_context_output}"
+        if context_updated:
+            ticket_context_line = f"Updated Context: {ticket_context_output}"
         ticket_due_line = f"Due: {ticket_due}"
+        if due_date_updated:
+            ticket_due_line = f"Updated Due: {ticket_due}"
         ticket_complete_line = f"Completed: {ticket_completed}"
 
         ticket_output_line = "\n".join(
@@ -865,7 +899,6 @@ def show_ticket_by_id(
                 ticket_complete_line
             ]
         )
-
 
     display = (
         "\n\n"
@@ -888,10 +921,7 @@ def set_ticket_by_id(pk: str):
 
     :param pk: Ticket ID
     """
-    state_updated = False
-    actionable_updated = False
     ticket_interface = TicketCollection()
-
 
     # Show the ticket
     show_ticket_by_id(pk.strip())
@@ -914,8 +944,10 @@ def set_ticket_by_id(pk: str):
     else:
         print(f" - {actionable_index}. Set as actionable\n")
 
-    choice = input("% ")
-    choice = choice.strip()
+    state_updated = False
+    actionable_updated = False
+
+    choice = choice_input()
     if not choice.isdigit() or int(choice) not in range(1, actionable_index + 1):
         print(f"Invalid choice {choice}, try again")
         return
@@ -932,8 +964,84 @@ def set_ticket_by_id(pk: str):
     # Display it after update
     show_ticket_by_id(
         pk=pk.strip(),
-        state_update=False,
-        actionable_updated=False,
+        state_update=state_updated,
+        actionable_updated=actionable_updated,
+    )
+
+
+def edit_ticket_by_id(pk: str):
+    """
+    Edit ticket fields.
+
+    Title [<current>]: — empty keeps (so the title can't be blanked).
+    Context [<current or —>]: — a lone - clears it to "".
+    Due at [<current or —>]: — a date / datetime sets it; a lone - clears it.
+
+    :param pk: Portion of ticket ID
+    :return:
+    """
+    ticket_interface = TicketCollection()
+
+    ticket = ticket_interface.get_ticket(pk.strip())
+    if not ticket or not isinstance(ticket, Ticket):
+        print(f"No ticket found with an ID starting with {pk.strip()}")
+        return
+
+    # Show the ticket
+    show_ticket_by_id(ticket.pk)
+    accepted_date_formats = "(YYYY-MM-DD | YYYY-MM-DD HH:MM)"
+
+    # Title
+    title_updated = False
+    title = ticket.title
+    print("Update title\n - Hit enter to keep the existing title")
+    choice = choice_input()
+    if choice:
+        title = choice
+        title_updated = True
+
+    # Context
+    context_updated = False
+    context = ticket.context
+    print("Update context\n - Hit enter to keep the existing context\n - A bare '-' clears existing context")
+    choice = choice_input()
+    if choice:
+        if choice == "-":
+            context = ""
+        else:
+            context = choice
+        context_updated = True
+
+    # "Due at" & "is time-bound"
+    due_at_updated = False
+    new_date = ticket.due_at.strftime("%Y-%m-%d %H:%M") if ticket.due_at else None
+    print("Update due\n - Hit enter to keep the existing due date"
+          "\n - A bare '-' clears existing due date and sets time-bound to none\n - "
+          f"Accepted Date formats: {accepted_date_formats}")
+    choice = choice_input()
+    option, was_updated = parse_due_input(choice)
+    if not option and was_updated:
+        new_date = None
+        due_at_updated = True
+    elif option and was_updated:
+        new_date = option
+        due_at_updated = True
+
+    ticket = ticket_interface.edit_ticket(
+        pk=ticket.pk,
+        new_title=title,
+        new_context=context,
+        new_date=new_date,
+    )
+    if not ticket:
+        print("Ticket update failed")
+        return
+
+    show_ticket_by_id(
+        pk=ticket.pk,
+        title_updated=title_updated,
+        context_updated=context_updated,
+        due_date_updated=due_at_updated,
     )
 
 
@@ -981,6 +1089,8 @@ def main():
             show_ticket_by_id(args.id)
         elif args.ticket_command == "set":
             set_ticket_by_id(args.id)
+        elif args.ticket_command == "edit":
+            edit_ticket_by_id(args.id)
         else:
             list_ticket_items(args)
 

@@ -1271,22 +1271,24 @@ class TestTicketCollection:
 
     def _one_open_ticket(self, isolated_storage_dir: Path, sample_base_data: dict,
                          pk: str, *, project=None, actionable=True,
-                         state="open", date_completed=None) -> None:
-        """Persist a single ticket for the mutation tests.
+                         state="open", date_completed=None,
+                         title="Mutable ticket", context="lab",
+                         due_at=None, time_bound=False) -> None:
+        """Persist a single ticket for the mutation tests (T-103 / T-105).
 
         # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
         """
         sample_base_data["tickets"] = {
             pk: {
-                "title": "Mutable ticket",
+                "title": title,
                 "state": state,
                 "project": project,
                 "actionable": actionable,
-                "context": "lab",
+                "context": context,
                 "date_created": "2026-08-10",
                 "date_completed": date_completed,
-                "time_bound": False,
-                "due_at": None,
+                "time_bound": time_bound,
+                "due_at": due_at,
             }
         }
         with open(isolated_storage_dir / "planner.json", "w") as f:
@@ -1423,6 +1425,167 @@ class TestTicketCollection:
         reread = TicketCollection().get_ticket("28882888")
         assert reread is not None
         assert reread.state == TicketState.IN_PROGRESS
+
+    # -- edit_ticket (T-105 — refine free-text fields) --------------------
+    # edit_ticket(pk, title, context, due_at) -> Ticket | None. The CLI resolves
+    # final values (due_at=None to clear) and passes all three; the model
+    # rebuilds through Ticket.model_validate so validate_due_date re-runs
+    # (time_bound = due_at is not None). get_ticket lookup -> cancelled
+    # unreachable. Prepared test-first for the human impl (spec §5).
+
+    def test_edit_ticket_changes_title_only(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify edit_ticket replaces the title while leaving context and due untouched.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170001-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk,
+                              title="Old title", context="lab")
+
+        updated = TicketCollection().edit_ticket("ed170001", "New title", "lab", None)
+        assert updated is not None
+        assert updated.title == "New title"
+        assert updated.context == "lab"
+        assert updated.due_at is None
+        assert updated.time_bound is False
+
+    def test_edit_ticket_changes_context_only(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify edit_ticket replaces the context string.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170002-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk,
+                              title="Keep me", context="lab")
+
+        updated = TicketCollection().edit_ticket("ed170002", "Keep me", "errands", None)
+        assert updated is not None
+        assert updated.title == "Keep me"
+        assert updated.context == "errands"
+
+    def test_edit_ticket_clears_context(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify edit_ticket can set the context to an empty string.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170003-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk, context="lab")
+
+        updated = TicketCollection().edit_ticket("ed170003", "Mutable ticket", "", None)
+        assert updated is not None
+        assert updated.context == ""
+
+    def test_edit_ticket_sets_due_at_makes_time_bound(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify passing a due_at sets it and flips time_bound True.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170004-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk)
+
+        updated = TicketCollection().edit_ticket(
+            "ed170004", "Mutable ticket", "lab", "2026-10-12 11:30",
+        )
+        assert updated is not None
+        assert updated.time_bound is True
+        assert updated.due_at == datetime.datetime(2026, 10, 12, 11, 30)
+
+    def test_edit_ticket_date_only_due_normalises_to_midnight(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a date-only due_at normalises to 00:00.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170005-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk)
+
+        updated = TicketCollection().edit_ticket(
+            "ed170005", "Mutable ticket", "lab", "2026-10-12",
+        )
+        assert updated is not None
+        assert updated.due_at == datetime.datetime(2026, 10, 12, 0, 0)
+        assert updated.time_bound is True
+
+    def test_edit_ticket_due_at_none_clears_time_bound(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify passing due_at=None clears the due date and time_bound.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170006-0000-0000-0000-000000000000"
+        self._one_open_ticket(
+            isolated_storage_dir, sample_base_data, pk,
+            due_at="2026-10-12T11:30:00", time_bound=True,
+        )
+
+        updated = TicketCollection().edit_ticket("ed170006", "Mutable ticket", "lab", None)
+        assert updated is not None
+        assert updated.due_at is None
+        assert updated.time_bound is False
+
+    def test_edit_ticket_all_fields_together(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify edit_ticket applies title, context and due_at in one call.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170007-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk,
+                              title="Before", context="lab")
+
+        updated = TicketCollection().edit_ticket(
+            "ed170007", "After", "home", "2026-12-01 09:00",
+        )
+        assert updated is not None
+        assert updated.title == "After"
+        assert updated.context == "home"
+        assert updated.due_at == datetime.datetime(2026, 12, 1, 9, 0)
+        assert updated.time_bound is True
+
+    def test_edit_ticket_unknown_id_returns_none(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify edit_ticket returns None for an unknown id.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        self._one_open_ticket(
+            isolated_storage_dir, sample_base_data,
+            "ed170008-0000-0000-0000-000000000000",
+        )
+        assert TicketCollection().edit_ticket("nomatch9", "x", "y", None) is None
+
+    def test_edit_ticket_cancelled_id_returns_none(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a cancelled ticket's id is unreachable via edit_ticket.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170009-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk, state="cancelled")
+        assert TicketCollection().edit_ticket("ed170009", "x", "y", None) is None
+
+    def test_edit_ticket_persists_across_fresh_collection(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify an edit is readable from a brand-new TicketCollection().
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        pk = "ed170010-0000-0000-0000-000000000000"
+        self._one_open_ticket(isolated_storage_dir, sample_base_data, pk,
+                              title="Before", context="lab")
+
+        TicketCollection().edit_ticket("ed170010", "After", "home", "2026-12-01")
+
+        reread = TicketCollection().get_ticket("ed170010")
+        assert reread is not None
+        assert reread.title == "After"
+        assert reread.context == "home"
+        assert reread.time_bound is True
+        assert reread.due_at == datetime.datetime(2026, 12, 1, 0, 0)
 
 
 class TestRoutinesCollection:

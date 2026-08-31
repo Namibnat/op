@@ -170,6 +170,11 @@ Individual executable steps. Diverging from strict single-next-action GTD, a pro
     tickets never appear.
   - `op ticket show <id>`: Display one ticket's full detail by ID prefix.
     Resolves only non-cancelled tickets.
+  - `op ticket set <id>`: Interactive single menu to change one thing — the
+    ticket's `state`, or toggle `actionable`. Setting `state` to `done` stamps
+    `date_completed`; moving out of `done` clears it.
+  - `op ticket edit <id>`: Interactively refine a ticket's free-text fields —
+    `title`, `context`, and the due date (`due_at` / `time_bound`).
 
 ### 4.5 Habits & Routines
 Recurring items structured with a strict separation between **Definition** and **History**.

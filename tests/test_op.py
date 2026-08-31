@@ -53,6 +53,13 @@ try:  # pragma: no cover - import shim for the test-first window
 except ImportError:  # noqa: F401 - resolved once T-103 lands
     set_ticket_by_id = None
 
+# T-105 (`op ticket edit`) — same test-first import shim.
+try:  # pragma: no cover - import shim for the test-first window
+    from op.op import edit_ticket_by_id, parse_due_input
+except ImportError:  # noqa: F401 - resolved once T-105 lands
+    edit_ticket_by_id = None
+    parse_due_input = None
+
 
 def test_package_import():
     """Verify op package imports cleanly.
@@ -1846,22 +1853,24 @@ def _set_ticket(pk: str):
     return set_ticket_by_id(pk)
 
 
-def _ticket_store(pk: str, *, state="open", project=None, actionable=True):
-    """One stored-form ticket dict for the set_ticket_by_id tests.
+def _ticket_store(pk: str, *, state="open", project=None, actionable=True,
+                  title="Ticket to change", context="lab",
+                  due_at=None, time_bound=False):
+    """One stored-form ticket dict for the set_ticket_by_id / edit_ticket_by_id tests.
 
     # Authored by Claude Code (claude-sonnet-5) for T-103 test-first coverage.
     """
     return {
         pk: {
-            "title": "Ticket to change",
+            "title": title,
             "state": state,
             "project": project,
             "actionable": actionable,
-            "context": "lab",
+            "context": context,
             "date_created": "2026-08-10",
             "date_completed": None,
-            "time_bound": False,
-            "due_at": None,
+            "time_bound": time_bound,
+            "due_at": due_at,
         }
     }
 
@@ -2020,5 +2029,269 @@ def test_main_ticket_set_dispatch(isolated_storage_dir: Path, sample_base_data: 
     assert stored is not None
     assert stored.state == TicketState.IN_PROGRESS
     assert "State: [in_progress]" in out
+
+
+# ---------------------------------------------------------------------------
+# T-105 — `op ticket edit <id>` (title / context / due) + parse_due_input
+#
+# Locked decisions (docs/dev_tickets.md, T-105, groomed 2026-08-30):
+#   * Editable: title, context, due (due_at + time_bound together). NOT state /
+#     actionable / project / created / completed.
+#   * Lookup via get_ticket(pk.strip()); not found -> standard not-found line in
+#     the " TICKET" frame, no prompts, no change (cancelled -> not found).
+#   * edit_ticket_by_id(pk): show first, then prompt-through "enter = keep":
+#       Title [<current>]:   empty keeps (title can't be blanked); typed replaces
+#       Context [<cur or —>]: empty keeps; lone "-" clears to ""
+#       Due [<cur or —>]:     empty keeps; date/datetime (create's forms) sets it;
+#                             lone "-" clears (due_at=None, time_bound=False)
+#     then console_clear() + re-show.
+#   * Shared parsing: parse_due_input(raw) -> (due_at, time_bound), extracted
+#     from create_ticket and reused by create + edit.
+#   * Model: TicketCollection.edit_ticket(pk, title, context, due_at) -> Ticket|None
+#     rebuilds via Ticket.model_validate so validate_due_date re-runs.
+#
+# Prepared test-first (spec §5). Handlers: op.op.edit_ticket_by_id,
+# op.op.parse_due_input, TicketCollection.edit_ticket. Imports guarded above.
+#
+# Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+# License: MIT
+# ---------------------------------------------------------------------------
+
+
+def _edit_ticket(pk: str):
+    """Call the T-105 handler, failing clearly if it is not implemented yet.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    """
+    assert edit_ticket_by_id is not None, (
+        "T-105 not implemented: op.op.edit_ticket_by_id is missing"
+    )
+    return edit_ticket_by_id(pk)
+
+
+# -- parse_due_input (shared helper) --------------------------------------
+
+def test_parse_due_input_empty_returns_none():
+    """Verify parse_due_input('') -> (None, False).
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    assert parse_due_input is not None, "T-105 not implemented: parse_due_input missing"
+    assert parse_due_input("") == (None, False)
+
+
+def test_parse_due_input_garbage_returns_none():
+    """Verify parse_due_input with no recognisable date -> (None, False).
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    assert parse_due_input is not None, "T-105 not implemented: parse_due_input missing"
+    assert parse_due_input("sometime next week") == (None, False)
+
+
+def test_parse_due_input_date_only():
+    """Verify a bare date parses to time_bound True and a midnight due value.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    assert parse_due_input is not None, "T-105 not implemented: parse_due_input missing"
+    due_at, time_bound = parse_due_input("2026-10-12")
+    assert time_bound is True
+    assert due_at is not None
+    assert "2026-10-12" in str(due_at)
+    assert "00:00" in str(due_at)
+
+
+def test_parse_due_input_date_and_time():
+    """Verify a date + time parses to time_bound True keeping the time component.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    assert parse_due_input is not None, "T-105 not implemented: parse_due_input missing"
+    due_at, time_bound = parse_due_input("2026-10-12 11:30")
+    assert time_bound is True
+    assert due_at is not None
+    assert "2026-10-12" in str(due_at)
+    assert "11:30" in str(due_at)
+
+
+# -- edit_ticket_by_id CLI ----------------------------------------------------
+
+def test_edit_ticket_by_id_not_found_no_prompt(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify an unknown id prints the not-found line and never prompts.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    def _no_input(prompt=""):
+        raise AssertionError("edit_ticket_by_id prompted for a missing ticket")
+
+    monkeypatch.setattr("builtins.input", _no_input)
+
+    _edit_ticket("99999999")
+    out = capsys.readouterr().out
+    assert "No ticket found with an ID starting with 99999999" in out
+
+
+def test_edit_ticket_by_id_empty_keeps_all_fields(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify hitting enter at every prompt leaves the ticket unchanged.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    pk = "11112222-3333-4444-5555-666677778888"
+    sample_base_data["tickets"] = _ticket_store(
+        pk, title="Keep it all", context="lab",
+        due_at="2026-10-12T11:30:00", time_bound=True,
+    )
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["", "", ""])  # Title / Context / Due
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _edit_ticket("11112222")
+
+    stored = TicketCollection().get_ticket("11112222")
+    assert stored is not None
+    assert stored.title == "Keep it all"
+    assert stored.context == "lab"
+    assert stored.time_bound is True
+    assert stored.due_at == datetime.datetime(2026, 10, 12, 11, 30)
+
+
+def test_edit_ticket_by_id_replaces_title_and_reshows(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify a typed title replaces the old one and the ticket is re-shown.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    pk = "22223333-4444-5555-6666-777788889999"
+    sample_base_data["tickets"] = _ticket_store(pk, title="Old title", context="lab")
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["Brand new title", "", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _edit_ticket("22223333")
+    out = capsys.readouterr().out
+
+    stored = TicketCollection().get_ticket("22223333")
+    assert stored is not None
+    assert stored.title == "Brand new title"
+    assert stored.context == "lab"
+    assert "Brand new title" in out  # re-shown after the edit
+
+
+def test_edit_ticket_by_id_replaces_context(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify a typed context replaces the old one.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    pk = "33334444-5555-6666-7777-888899990000"
+    sample_base_data["tickets"] = _ticket_store(pk, context="lab")
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["", "errands, town", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _edit_ticket("33334444")
+
+    stored = TicketCollection().get_ticket("33334444")
+    assert stored is not None
+    assert stored.context == "errands, town"
+
+
+def test_edit_ticket_by_id_dash_clears_context(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify a lone '-' at the context prompt clears it to "".
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    pk = "44445555-6666-7777-8888-999900001111"
+    sample_base_data["tickets"] = _ticket_store(pk, context="lab")
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["", "-", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _edit_ticket("44445555")
+
+    stored = TicketCollection().get_ticket("44445555")
+    assert stored is not None
+    assert stored.context == ""
+
+
+def test_edit_ticket_by_id_dash_clears_due(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify a lone '-' at the due prompt clears due_at and time_bound.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    pk = "55556666-7777-8888-9999-000011112222"
+    sample_base_data["tickets"] = _ticket_store(
+        pk, due_at="2026-10-12T11:30:00", time_bound=True,
+    )
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["", "", "-"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _edit_ticket("55556666")
+
+    stored = TicketCollection().get_ticket("55556666")
+    assert stored is not None
+    assert stored.due_at is None
+    assert stored.time_bound is False
+
+
+def test_edit_ticket_by_id_date_sets_due(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify a date/datetime at the due prompt sets due_at and time_bound.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    pk = "66667777-8888-9999-0000-111122223333"
+    sample_base_data["tickets"] = _ticket_store(pk)  # not time-bound
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["", "", "2026-12-01 09:00"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    _edit_ticket("66667777")
+
+    stored = TicketCollection().get_ticket("66667777")
+    assert stored is not None
+    assert stored.time_bound is True
+    assert stored.due_at == datetime.datetime(2026, 12, 1, 9, 0)
+
+
+def test_main_ticket_edit_dispatch(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Verify `op ticket edit <id>` routes through main() to edit_ticket_by_id.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+    # License: MIT
+    """
+    assert edit_ticket_by_id is not None, (
+        "T-105 not implemented: op.op.edit_ticket_by_id is missing"
+    )
+    pk = "dddd1111-2222-3333-4444-555566667777"
+    sample_base_data["tickets"] = _ticket_store(pk, title="Routed", context="lab")
+    _write(isolated_storage_dir, sample_base_data)
+
+    inputs = iter(["Routed and renamed", "", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr("sys.argv", ["op", "ticket", "edit", "dddd1111"])
+    main()
+    out = capsys.readouterr().out
+
+    stored = TicketCollection().get_ticket("dddd1111")
+    assert stored is not None
+    assert stored.title == "Routed and renamed"
+    assert "Routed and renamed" in out
 
 

@@ -102,9 +102,23 @@ op ticket list --state done                 # List all tickets that are done
 op ticket show <ticket-id>                  # Show a ticket's details
 # Listing all done tickets will be a lot, and probably more useful for reviews, suggest piping to a file:
 op ticket list --state done > /path/to/output.txt
-op ticket set                               # Set prompts the user to change state or actionability of the ticket
+op ticket set <ticket-id>                   # Set prompts the user to change state or actionability of the ticket
+op ticket edit <ticket-id>                  # Edit title, context and due date (See Ticket Edit Choices table)
 
 ```
+
+### Ticket Edit Choices
+
+| On [The part being edited] | Action             | Result                                                |
+|----------------------------|--------------------|-------------------------------------------------------|
+| title                      | Leave blank        | Keeps the old title                                   |
+| title                      | Enter text         | Updates the title                                     |
+| context                    | Leave blank        | Keeps the old context                                 |
+| context                    | Add a '-'          | Clears the context                                    |
+| date                       | Leave blank        | Keeps the due date and "is time-bound" as is          |
+| date                       | Enter a valid date | Updates the due date and sets "is time-bound" to true |
+| date                       | Add a '-'          | Clears the due date and sets "is time-bound" to False |
+
 
 ## Development
 

@@ -270,4 +270,28 @@ class TestParser:
         with pytest.raises(SystemExit):
             parser.parse_args(["ticket", "set"])
 
+    def test_parser_ticket_edit(self):
+        """Verify parsing 'ticket edit <id>' captures ticket, edit, and id argument.
+
+        Prepared test-first for T-105 (spec §5).
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        parser = build_parser()
+        args = parser.parse_args(["ticket", "edit", "c3d4e5f6"])
+        assert args.command == "ticket"
+        assert args.ticket_command == "edit"
+        assert args.id == "c3d4e5f6"
+
+    def test_parser_ticket_edit_missing_id_raises(self):
+        """Verify parsing 'ticket edit' with no positional id exits with a parse error.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-105 test-first coverage.
+        # License: MIT
+        """
+        parser = build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["ticket", "edit"])
+
 

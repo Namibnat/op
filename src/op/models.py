@@ -489,6 +489,37 @@ class TicketCollection(CollectionModel):
 
         return ticket
 
+    def edit_ticket(
+            self,
+            pk: str,
+            new_title: str | None,
+            new_context: str | None,
+            new_date: str | None,
+    ) -> Ticket | None:
+        """Edit ticket
+
+        :param pk: Ticket ID
+        :param new_title: New title if updated
+        :param new_context: New context if updated
+        :param new_date: New date if updated.  Will set time-bound if not set.
+        :return: Ticket or None
+        """
+        ticket = self.get_ticket(pk)
+        if not isinstance(ticket, Ticket):
+            return None
+
+        data = ticket.model_dump(mode="json")
+        data["title"] = new_title
+        data["context"] = new_context
+        data["due_at"] = new_date
+        data["time_bound"] = new_date is not None
+
+        updated_ticket = Ticket.model_validate(data)
+
+        self._save_data_with_ticket(updated_ticket)
+
+        return updated_ticket
+
 
 class RoutinesCollection(CollectionModel):
     """Routines/Habits Collection"""
