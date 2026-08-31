@@ -118,12 +118,12 @@ A high-level outcome or deliverable with defined completion criteria.
 - **Resource Pointers (`ProjectResource`)**: Structured metadata items with `type` (e.g., `repo`, `doc`, `link`), human-readable `label`, and external `location` (filesystem path, URL, Obsidian note).
 - **CLI Commands**:
   - `op project create <id>`: Promote a bucket item into a project and discard the bucket item.
-  - `op project list [--all|--state [new|done|archived]]`: List projects.
-  - `op project show <id>`: Display project details and its attached resources.
+  - `op project list [--all|--state [new|done|archived]]`: List projects, each row carrying a `done/total` non-cancelled ticket count.
+  - `op project show <id>`: Display project details, its attached resources, its tickets, and a `done/total` ticket completion count.
   - `op project set <id>`: Interactively transition project lifecycle state.
   - `op project resources --add <id>`: Interactively attach one or more resources to an existing project.
   - `op project resources --remove <id>`: Interactively select and remove a resource from a project.
-- **Tickets Link**: A project will aggregate related tickets.
+- **Tickets Link**: A project aggregates related tickets. Both `op project list` and `op project show` surface a `done/total` count of the project's non-cancelled tickets so completion can be scanned without a per-project drill-in.
 
 ### 4.4 Tickets (Actionable Work Units)
 Individual executable steps. Diverging from strict single-next-action GTD, a project may have multiple parallel actionable tickets simultaneously, or tickets may exist as standalone next actions.

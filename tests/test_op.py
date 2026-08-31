@@ -665,6 +665,178 @@ def test_show_project_by_id_with_tickets(isolated_storage_dir: Path, sample_base
     assert "Subtask Gamma Cancelled" not in captured.out
 
 
+# ---------------------------------------------------------------------------
+# T-106 — done/total ticket count on `op project show` + `op project list`
+#
+# Locked decisions (docs/dev_tickets.md, T-106, groomed 2026-08-31):
+#   * total = the project's non-cancelled tickets; done = state == done.
+#     Ticketless project -> 0/0.
+#   * Both views call TicketCollection.progress_by_project() once
+#     (dict[str, (done, total)] keyed by full project pk; caller defaults (0,0)).
+#   * `op project list`: new DONE column + a header row
+#       ID        DONE   CREATED     NAME
+#     Every row shows <done>/<total> incl 0/0. Column padding not pinned (\s+).
+#   * `op project show`: a "Tickets: <done>/<total> done" line directly under the
+#     "State: [...]" line.
+#
+# Prepared test-first (spec §5). progress_by_project() is a new model method.
+#
+# Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+# License: MIT
+# ---------------------------------------------------------------------------
+
+
+def _t106_project(pk: str, name: str, created: str, state: str = "active") -> dict:
+    """Stored-form project dict for the T-106 view tests.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    """
+    return {
+        "name": name, "spec": "spec", "state": state,
+        "done_when": "done", "date_created": created, "resources": {},
+    }
+
+
+def _t106_ticket(state: str, project) -> dict:
+    """Stored-form ticket dict for the T-106 view tests.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    """
+    return {
+        "title": f"{state} ticket", "state": state, "project": project,
+        "actionable": True, "context": "", "date_created": "2026-08-20",
+        "date_completed": "2026-08-25" if state == "done" else None,
+        "time_bound": False, "due_at": None,
+    }
+
+
+def test_list_project_items_has_done_column_header(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify `op project list` renders the ID / DONE / CREATED / NAME header row.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    # License: MIT
+    """
+    proj = "a1b2c3d4-1111-2222-3333-444455556666"
+    sample_base_data["projects"] = {proj: _t106_project(proj, "Kitchen remodel", "2026-08-20")}
+    sample_base_data["tickets"] = {"t1": _t106_ticket("done", proj), "t2": _t106_ticket("open", proj)}
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_project_items(argparse.Namespace(all=False, state=None))
+    out = capsys.readouterr().out
+
+    assert re.search(r"ID\s+DONE\s+CREATED\s+NAME", out)
+
+
+def test_list_project_items_shows_done_ratio(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a project with 3 done of 5 non-cancelled tickets shows 3/5 in the DONE column.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    # License: MIT
+    """
+    proj = "a1b2c3d4-1111-2222-3333-444455556666"
+    sample_base_data["projects"] = {proj: _t106_project(proj, "Kitchen remodel", "2026-08-20")}
+    sample_base_data["tickets"] = {
+        "t1": _t106_ticket("done", proj),
+        "t2": _t106_ticket("done", proj),
+        "t3": _t106_ticket("done", proj),
+        "t4": _t106_ticket("open", proj),
+        "t5": _t106_ticket("in_progress", proj),
+        "t6": _t106_ticket("cancelled", proj),  # not counted
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_project_items(argparse.Namespace(all=False, state=None))
+    out = capsys.readouterr().out
+
+    assert re.search(r"a1b2c3d4\s+3/5\s+2026-08-20\s+Kitchen remodel", out)
+
+
+def test_list_project_items_ticketless_project_shows_zero(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a project with no tickets shows 0/0 in the DONE column.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    # License: MIT
+    """
+    proj = "e5f6a7b8-1111-2222-3333-444455556666"
+    sample_base_data["projects"] = {proj: _t106_project(proj, "Tax return", "2026-08-14")}
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_project_items(argparse.Namespace(all=False, state=None))
+    out = capsys.readouterr().out
+
+    assert re.search(r"e5f6a7b8\s+0/0\s+2026-08-14\s+Tax return", out)
+
+
+def test_list_project_items_done_ratio_unchanged_ordering(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify the DONE column does not disturb newest-first ordering or names.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    # License: MIT
+    """
+    older = "aaaa1111-0000-0000-0000-000000000000"
+    newer = "bbbb2222-0000-0000-0000-000000000000"
+    sample_base_data["projects"] = {
+        older: _t106_project(older, "Older project", "2026-08-01"),
+        newer: _t106_project(newer, "Newer project", "2026-08-20"),
+    }
+    sample_base_data["tickets"] = {"t1": _t106_ticket("done", newer)}
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    list_project_items(argparse.Namespace(all=True, state=None))
+    out = capsys.readouterr().out
+
+    assert out.index("Newer project") < out.index("Older project")
+    assert re.search(r"bbbb2222\s+1/1", out)
+    assert re.search(r"aaaa1111\s+0/0", out)
+
+
+def test_show_project_by_id_shows_ticket_progress(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify `op project show` renders "Tickets: 3/5 done" just under the state line.
+
+    Cancelled tickets are excluded from both counts.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    # License: MIT
+    """
+    proj = "cc0e8400-1111-2222-3333-444455556666"
+    sample_base_data["projects"] = {proj: _t106_project(proj, "Solar Setup", "2026-08-17")}
+    sample_base_data["tickets"] = {
+        "t1": _t106_ticket("done", proj),
+        "t2": _t106_ticket("done", proj),
+        "t3": _t106_ticket("done", proj),
+        "t4": _t106_ticket("open", proj),
+        "t5": _t106_ticket("in_progress", proj),
+        "t6": _t106_ticket("cancelled", proj),
+    }
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    show_project_by_id("cc0e8400")
+    out = capsys.readouterr().out
+
+    assert re.search(r"Tickets:\s+3/5\s+done", out)
+    assert out.index("State: [") < out.index("Tickets:")
+
+
+def test_show_project_by_id_ticketless_shows_zero_progress(isolated_storage_dir: Path, sample_base_data: dict, capsys: pytest.CaptureFixture):
+    """Verify a project with no tickets shows "Tickets: 0/0 done".
+
+    # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+    # License: MIT
+    """
+    proj = "dd0e8400-1111-2222-3333-444455556666"
+    sample_base_data["projects"] = {proj: _t106_project(proj, "Empty Project", "2026-08-19")}
+    with open(isolated_storage_dir / "planner.json", "w") as f:
+        json.dump(sample_base_data, f)
+
+    show_project_by_id("dd0e8400")
+    out = capsys.readouterr().out
+
+    assert re.search(r"Tickets:\s+0/0\s+done", out)
 
 
 def test_add_project_resources_interactive_success(isolated_storage_dir: Path, sample_base_data: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):

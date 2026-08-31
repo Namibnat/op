@@ -1587,6 +1587,125 @@ class TestTicketCollection:
         assert reread.time_bound is True
         assert reread.due_at == datetime.datetime(2026, 12, 1, 0, 0)
 
+    # -- progress_by_project (T-106 — done/total per project) --------------
+    # progress_by_project() -> dict[str, tuple[int, int]] keyed by the full
+    # ticket.project pk, value (done, total). One get_all_tickets() pass
+    # (cancelled already stripped -> excluded from both counts). project is None
+    # skipped; ticketless projects simply absent (callers default (0, 0)); no
+    # tickets at all -> {}. Prepared test-first for the human impl (spec §5).
+
+    @staticmethod
+    def _ticket(state: str, project):
+        return {
+            "title": f"{state} ticket", "state": state, "project": project,
+            "actionable": True, "context": "", "date_created": "2026-08-20",
+            "date_completed": "2026-08-25" if state == "done" else None,
+            "time_bound": False, "due_at": None,
+        }
+
+    def test_progress_by_project_empty_store(self, isolated_storage_dir: Path):
+        """Verify progress_by_project() is {} when there are no tickets.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+        # License: MIT
+        """
+        assert TicketCollection().progress_by_project() == {}
+
+    def test_progress_by_project_mixed_states_excludes_cancelled(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a project's tuple is (done, non-cancelled total); cancelled counts nowhere.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+        # License: MIT
+        """
+        proj = "proj-aaaa-0000-0000-0000-000000000000"
+        sample_base_data["tickets"] = {
+            "t1": self._ticket("done", proj),
+            "t2": self._ticket("done", proj),
+            "t3": self._ticket("open", proj),
+            "t4": self._ticket("in_progress", proj),
+            "t5": self._ticket("cancelled", proj),
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        assert TicketCollection().progress_by_project() == {proj: (2, 4)}
+
+    def test_progress_by_project_skips_standalone_tickets(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify tickets with project is None never appear in the result.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+        # License: MIT
+        """
+        proj = "proj-bbbb-0000-0000-0000-000000000000"
+        sample_base_data["tickets"] = {
+            "t1": self._ticket("done", proj),
+            "t2": self._ticket("open", None),
+            "t3": self._ticket("done", None),
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        result = TicketCollection().progress_by_project()
+        assert result == {proj: (1, 1)}
+        assert None not in result
+
+    def test_progress_by_project_only_non_done(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a project with no done tickets is (0, n).
+
+        # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+        # License: MIT
+        """
+        proj = "proj-cccc-0000-0000-0000-000000000000"
+        sample_base_data["tickets"] = {
+            "t1": self._ticket("open", proj),
+            "t2": self._ticket("in_progress", proj),
+            "t3": self._ticket("open", proj),
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        assert TicketCollection().progress_by_project() == {proj: (0, 3)}
+
+    def test_progress_by_project_multiple_projects_keyed_independently(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify each project pk gets its own independent (done, total) tuple.
+
+        # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+        # License: MIT
+        """
+        proj_a = "proj-a-0000-0000-0000-000000000000"
+        proj_b = "proj-b-0000-0000-0000-000000000000"
+        sample_base_data["tickets"] = {
+            "a1": self._ticket("done", proj_a),
+            "a2": self._ticket("done", proj_a),
+            "a3": self._ticket("open", proj_a),
+            "b1": self._ticket("done", proj_b),
+            "b2": self._ticket("open", proj_b),
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        result = TicketCollection().progress_by_project()
+        assert result[proj_a] == (2, 3)
+        assert result[proj_b] == (1, 2)
+
+    def test_progress_by_project_ticketless_project_absent(self, isolated_storage_dir: Path, sample_base_data: dict):
+        """Verify a project with no tickets does not appear (caller defaults to (0, 0)).
+
+        # Authored by Claude Code (claude-sonnet-5) for T-106 test-first coverage.
+        # License: MIT
+        """
+        proj = "proj-dddd-0000-0000-0000-000000000000"
+        sample_base_data["projects"] = {
+            proj: {"name": "Idle", "spec": "s", "state": "active",
+                   "done_when": "d", "date_created": "2026-08-01", "resources": {}},
+        }
+        with open(isolated_storage_dir / "planner.json", "w") as f:
+            json.dump(sample_base_data, f)
+
+        result = TicketCollection().progress_by_project()
+        assert proj not in result
+        assert result.get(proj, (0, 0)) == (0, 0)
+
 
 class TestRoutinesCollection:
     """Tests for RoutinesCollection model.

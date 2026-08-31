@@ -335,6 +335,29 @@ class TicketCollection(CollectionModel):
         self.data[self.container_name][ticket.pk] = data_project
         self.save_data()
 
+    def progress_by_project(self) -> dict[str, tuple[int, int]]:
+        """Show progress of project tickets by project IDs
+
+        :return: Dict of project with a tuple of done/total tickets
+        """
+        result = dict()
+        tickets = self.get_all_tickets()
+
+        if not tickets:
+            return result
+
+        for ticket in tickets:
+            if not ticket.project:
+                continue
+            project_key = ticket.project
+            done, total = result.get(project_key, (0, 0))
+            total += 1
+            if ticket.state == TicketState.DONE:
+                done += 1
+            result[project_key] = (done, total)
+
+        return result
+
     def count_active_tickets(self) -> int:
         """Count active tickets
 

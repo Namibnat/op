@@ -70,6 +70,7 @@ def create_type_item_str(
         item_length: int,
         get_label: Callable[[Any], str] = lambda x: getattr(x, "item", getattr(x, "name", "")),
         include_state: bool = False,
+        progress_scores: dict | None = None,
 ) -> str:
     """Create the type item string for printing
 
@@ -77,6 +78,7 @@ def create_type_item_str(
     :param item_length: The length of the item
     :param get_label: Function to get label
     :param include_state: Whether to include state information
+    :param progress_scores: Score to show if item is done
     :return: Type item string
     """
     print_lines = list()
@@ -87,7 +89,14 @@ def create_type_item_str(
         primary_key = output_id_string(item.pk)
         if include_state and hasattr(item, 'state') and item.state:
             state = f"{item.state}  "
-        print_line = f"{primary_key}  {created_date}  {state}{name[:item_length]}"
+        done_output = ""
+        if progress_scores:
+            if item.pk in progress_scores.keys():
+                done_score = f"{progress_scores[item.pk][0]}/{progress_scores[item.pk][1]}"
+                done_output += f"{done_score}     "
+            else:
+                done_output += f"0/0     "
+        print_line = f"{primary_key}  {done_output}{created_date}  {state}{name[:item_length]}"
         print_lines.append(print_line)
 
     type_items_string = "\n\t".join(print_lines)
@@ -395,6 +404,7 @@ def list_project_items(args: argparse.Namespace):
     title_line_full = create_title_line(terminal_width)
 
     project_interface = ProjectCollection()
+    ticket_interface = TicketCollection()
 
     # Filter: by default filter by active
     project_filter = 'active'
@@ -412,11 +422,16 @@ def list_project_items(args: argparse.Namespace):
     reasonable_item_length = max(10, terminal_width - 40)
 
     project_items_string = "\tNo projects"
+    progress_scores = ticket_interface.progress_by_project()
 
     if all_projects:
+        for project in all_projects:
+            if project.pk not in progress_scores:
+                progress_scores[project.pk] = (0, 0)
         project_items_string = create_type_item_str(
             items=all_projects,
-            item_length=reasonable_item_length
+            item_length=reasonable_item_length,
+            progress_scores=progress_scores
         )
 
     len_all_projects = len(all_projects) if all_projects else 0
@@ -427,6 +442,7 @@ def list_project_items(args: argparse.Namespace):
         "\n\n\n"
         f" PROJECTS - {len_all_projects} projects"
         f"{item_sep}"
+        "\tID        DONE    CREATED     NAME\n"
         f"\t{project_items_string}"
         f"{item_sep}"
     )
@@ -453,12 +469,15 @@ def show_project_by_id(
     ticket_interface = TicketCollection()
     project = project_interface.get_project(pk)
 
+    progress_scores = ticket_interface.progress_by_project()
+
+
     tickets_output = ''
     if project:
         project_tickets = ticket_interface.get_project_tickets(pk)
         ticket_output_collection = list()
         ticket_output_collection.append(
-            '\n\nPROJECT TICKETS:\n--------------------------------------\n'
+            f'\n\nPROJECT TICKETS:\n--------------------------------------\n'
             'ID        Actionable  Title'
         )
         if project_tickets:
@@ -472,6 +491,10 @@ def show_project_by_id(
 
     project_output = f"\nNo project found with an ID starting with {pk.strip()}"
     if project:
+        process_output = "Tickets: 0/0 done"
+        if project.pk in progress_scores:
+            done, total = progress_scores.get(project.pk, (0, 0))
+            process_output = f"Tickets: {done}/{total} done"
         project_id = output_id_string(project.pk)
         name = project.name
         spec = project.spec
@@ -507,6 +530,7 @@ def show_project_by_id(
             f"Project spec:\n\t{spec}\n\n"
             f"Done when:\n\t{done_when}\n\n"
             f"{state_output}\n"
+            f"\n{process_output}\n\n"
             f"{resources_output}"
             f"{tickets_output}"
         )
