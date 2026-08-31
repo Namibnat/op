@@ -94,16 +94,17 @@ def create_type_item_str(
     return type_items_string
 
 
-def parse_due_input(raw_date_input: str) -> tuple[str | None, bool]:
+def parse_due_input(raw_date_input: str, allow_clear: bool = False) -> tuple[str | None, bool]:
     """Parse the due_date and time_bound.
 
     :param raw_date_input: User input, which could be a date or a dash to indicate clear
+    :param allow_clear: Whether to allow clear date or not
     :return: Due date string and if the ticket is time-bound.
     """
     if not raw_date_input:
         return None, False
 
-    if raw_date_input == "-":
+    if allow_clear and raw_date_input == "-":
         return None, True
 
     pattern_short_date = re.compile(r'^\d{4}-\d{2}-\d{2}')
@@ -1019,7 +1020,10 @@ def edit_ticket_by_id(pk: str):
           "\n - A bare '-' clears existing due date and sets time-bound to none\n - "
           f"Accepted Date formats: {accepted_date_formats}")
     choice = choice_input()
-    option, was_updated = parse_due_input(choice)
+    option, was_updated = parse_due_input(
+        raw_date_input=choice,
+        allow_clear=True,
+    )
     if not option and was_updated:
         new_date = None
         due_at_updated = True

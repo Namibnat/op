@@ -2119,6 +2119,69 @@ def test_parse_due_input_date_and_time():
     assert "11:30" in str(due_at)
 
 
+# -- T-112: parse_due_input allow_clear flag ---------------------------------
+# The "-" clear signal must be opt-in. parse_due_input(raw, *, allow_clear=False):
+# only the "-" branch is flag-sensitive -> (None, True) when allow_clear else
+# (None, False). create_ticket calls it plain (bare "-" -> no due, no crash);
+# edit_ticket_by_id passes allow_clear=True to keep its keep/clear/set three-way.
+# Prepared test-first for the human impl (spec §5, no spec change).
+#
+# Authored by Claude Code (claude-sonnet-5) for T-112 test-first coverage.
+# License: MIT
+
+
+def test_parse_due_input_dash_without_allow_clear_is_no_due():
+    """Verify a bare '-' is NOT a clear signal by default -> (None, False).
+
+    # Authored by Claude Code (claude-sonnet-5) for T-112 test-first coverage.
+    # License: MIT
+    """
+    assert parse_due_input is not None, "T-112 not implemented: parse_due_input missing"
+    assert parse_due_input("-") == (None, False)
+
+
+def test_parse_due_input_dash_with_allow_clear_signals_clear():
+    """Verify '-' with allow_clear=True returns the clear signal (None, True).
+
+    # Authored by Claude Code (claude-sonnet-5) for T-112 test-first coverage.
+    # License: MIT
+    """
+    assert parse_due_input is not None, "T-112 not implemented: parse_due_input missing"
+    assert parse_due_input("-", allow_clear=True) == (None, True)
+
+
+@pytest.mark.parametrize("raw", ["", "sometime next week", "2026-10-12", "2026-10-12 11:30"])
+def test_parse_due_input_allow_clear_only_affects_dash(raw: str):
+    """Verify the allow_clear flag changes nothing for non-'-' inputs.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-112 test-first coverage.
+    # License: MIT
+    """
+    assert parse_due_input is not None, "T-112 not implemented: parse_due_input missing"
+    assert parse_due_input(raw) == parse_due_input(raw, allow_clear=True)
+
+
+def test_create_ticket_dash_at_due_prompt_does_not_crash(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    """Regression (T-112): a bare '-' at the create due prompt creates a non-time-bound ticket, no crash.
+
+    # Authored by Claude Code (claude-sonnet-5) for T-112 test-first coverage.
+    # License: MIT
+    """
+    # create_ticket prompts: Title / state ": " / context ": " / due ": "
+    inputs = iter(["Buy a new spanner", "", "errands", "-"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    create_ticket()  # must not raise
+
+    ticket_col = TicketCollection()
+    tickets = ticket_col.read_all("tickets")
+    assert len(tickets) == 1
+    t_data = list(tickets.values())[0]
+    assert t_data["title"] == "Buy a new spanner"
+    assert t_data["time_bound"] is False
+    assert t_data["due_at"] is None
+
+
 # -- edit_ticket_by_id CLI ----------------------------------------------------
 
 def test_edit_ticket_by_id_not_found_no_prompt(isolated_storage_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
